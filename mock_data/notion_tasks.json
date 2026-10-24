@@ -1,0 +1,74 @@
+[
+  {
+    "id": "task_001",
+    "task": "DBMS Assignment 3 (Normalization + B+ tree indexing)",
+    "subject": "DBMS",
+    "due_date": "2026-10-25",
+    "status": "In Progress",
+    "url": "https://www.notion.so/mosaic/task_001"
+  },
+  {
+    "id": "task_002",
+    "task": "OS Lab Report 4 (CPU scheduling)",
+    "subject": "Operating Systems",
+    "due_date": "2026-10-27",
+    "status": "Not Started",
+    "url": "https://www.notion.so/mosaic/task_002"
+  },
+  {
+    "id": "task_003",
+    "task": "Prepare for CN Quiz 2 (transport layer)",
+    "subject": "Computer Networks",
+    "due_date": "2026-10-29",
+    "status": "Not Started",
+    "url": "https://www.notion.so/mosaic/task_003"
+  },
+  {
+    "id": "task_004",
+    "task": "ML mini project proposal",
+    "subject": "Machine Learning",
+    "due_date": "2026-10-31",
+    "status": "In Progress",
+    "url": "https://www.notion.so/mosaic/task_004"
+  },
+  {
+    "id": "task_005",
+    "task": "DSA practice: 10 graph problems",
+    "subject": "Interview Prep",
+    "due_date": "2026-10-26",
+    "status": "In Progress",
+    "url": "https://www.notion.so/mosaic/task_005"
+  },
+  {
+    "id": "task_006",
+    "task": "Razorpay interview prep: LLD of a payment retry system",
+    "subject": "Interview Prep",
+    "due_date": "2026-10-27",
+    "status": "Not Started",
+    "url": "https://www.notion.so/mosaic/task_006"
+  },
+  {
+    "id": "task_007",
+    "task": "Software Engineering: SRS document",
+    "subject": "Software Engineering",
+    "due_date": "2026-11-05",
+    "status": "Not Started",
+    "url": "https://www.notion.so/mosaic/task_007"
+  },
+  {
+    "id": "task_008",
+    "task": "Compiler Design Assignment 2",
+    "subject": "Compiler Design",
+    "due_date": "2026-10-20",
+    "status": "Done",
+    "url": "https://www.notion.so/mosaic/task_008"
+  },
+  {
+    "id": "task_009",
+    "task": "End-sem exam registration + fee payment on ERP",
+    "subject": "College Admin",
+    "due_date": "2026-10-28",
+    "status": "Not Started",
+    "url": "https://www.notion.so/mosaic/task_009"
+  }
+]

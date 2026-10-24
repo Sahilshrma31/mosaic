@@ -1,0 +1,5 @@
+.venv/
+.env
+__pycache__/
+INTERVIEW_NOTES.md
+Claude.md

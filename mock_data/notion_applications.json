@@ -1,0 +1,92 @@
+[
+  {
+    "id": "app_001",
+    "company": "Google",
+    "role": "Software Engineering Intern",
+    "status": "Applied",
+    "applied_date": "2026-09-15",
+    "notes": "Dream company. Applied via careers site.",
+    "url": "https://www.notion.so/mosaic/app_001"
+  },
+  {
+    "id": "app_002",
+    "company": "Razorpay",
+    "role": "SDE Intern",
+    "status": "Interview",
+    "applied_date": "2026-09-20",
+    "notes": "Cleared OA. Prep: trees, graphs, LLD (payment systems). Revise my Mosaic project architecture.",
+    "url": "https://www.notion.so/mosaic/app_002"
+  },
+  {
+    "id": "app_003",
+    "company": "Swiggy",
+    "role": "Backend Engineering Intern",
+    "status": "Applied",
+    "applied_date": "2026-09-22",
+    "notes": "Referral from senior (Karan).",
+    "url": "https://www.notion.so/mosaic/app_003"
+  },
+  {
+    "id": "app_004",
+    "company": "Zomato",
+    "role": "SDE Intern",
+    "status": "Rejected",
+    "applied_date": "2026-09-10",
+    "notes": "",
+    "url": "https://www.notion.so/mosaic/app_004"
+  },
+  {
+    "id": "app_005",
+    "company": "Flipkart",
+    "role": "SDE Intern",
+    "status": "Applied",
+    "applied_date": "2026-10-01",
+    "notes": "Waiting for OA link.",
+    "url": "https://www.notion.so/mosaic/app_005"
+  },
+  {
+    "id": "app_006",
+    "company": "CRED",
+    "role": "Backend Intern",
+    "status": "Interview",
+    "applied_date": "2026-09-28",
+    "notes": "Round 1 went well. Revise caching and DB indexing.",
+    "url": "https://www.notion.so/mosaic/app_006"
+  },
+  {
+    "id": "app_007",
+    "company": "Microsoft",
+    "role": "Software Engineering Intern",
+    "status": "Applied",
+    "applied_date": "2026-10-05",
+    "notes": "",
+    "url": "https://www.notion.so/mosaic/app_007"
+  },
+  {
+    "id": "app_008",
+    "company": "PhonePe",
+    "role": "SDE Intern",
+    "status": "Offer",
+    "applied_date": "2026-09-05",
+    "notes": "Rs 80k/month stipend. Bengaluru. Decide after Razorpay result.",
+    "url": "https://www.notion.so/mosaic/app_008"
+  },
+  {
+    "id": "app_009",
+    "company": "Atlassian",
+    "role": "Software Engineer Intern",
+    "status": "Applied",
+    "applied_date": "2026-10-10",
+    "notes": "",
+    "url": "https://www.notion.so/mosaic/app_009"
+  },
+  {
+    "id": "app_010",
+    "company": "Groww",
+    "role": "Backend Intern",
+    "status": "Rejected",
+    "applied_date": "2026-09-12",
+    "notes": "Failed OA, weak in DP.",
+    "url": "https://www.notion.so/mosaic/app_010"
+  }
+]
