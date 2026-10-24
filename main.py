@@ -34,8 +34,8 @@ class ChatResponse(BaseModel):
 def chat(request: ChatRequest):
     """Send the user's question to Gemini with Mosaic's system prompt and return its reply.
 
-    Day 1 version: a single LLM call with no tools, so the answer comes only from the
-    model's training knowledge. Day 2 replaces this with the agent loop over Gmail and Notion.
+    This is a single LLM call with no tools, so the answer comes only from the model's
+    training knowledge, not from the user's Gmail or Notion data.
     """
     response = client.models.generate_content(
         model="gemini-3.5-flash",

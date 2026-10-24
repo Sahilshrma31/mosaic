@@ -1,8 +1,8 @@
 """Tools the agent can call: Gmail search and Notion queries.
 
-On Days 1-3 these read local mock JSON files. On Day 4 their bodies are replaced with real
-Gmail API and Notion API calls, but the function names, parameters and return shapes stay the
-same, so the agent loop never needs to change.
+These currently read local mock JSON files. Swapping their bodies for real Gmail API and
+Notion API calls must keep the function names, parameters and return shapes the same, so the
+agent loop never needs to change.
 """
 
 import json
@@ -67,3 +67,51 @@ def query_notion(database: str, status: str | None = None) -> list[dict]:
     if status:
         rows = [row for row in rows if row["status"].lower() == status.lower()]
     return rows
+
+
+# Tool schemas sent to the LLM. The model never sees the Python code above, only these
+# names, descriptions and JSON Schema parameters. It decides which tool to call (and with
+# what arguments) purely from this text, so the descriptions matter as much as the code.
+TOOL_DECLARATIONS = [
+    {
+        "name": "search_emails",
+        "description": (
+            "Search the user's Gmail inbox by keywords. Every keyword must appear in the "
+            "sender, subject or body. Results are newest first and include labels: mails "
+            "labelled CATEGORY_PROMOTIONS are usually ads, but can still hold important "
+            "notices. Use few, specific keywords (e.g. 'razorpay interview'); if nothing "
+            "matches, retry with fewer or different keywords."
+        ),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Space-separated keywords."},
+                "max_results": {"type": "integer", "description": "Max mails to return (default 5)."},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "query_notion",
+        "description": (
+            "Read the user's Notion databases. 'applications' is the internship tracker "
+            "(company, role, status: Applied/Interview/Rejected/Offer, applied date, notes). "
+            "'tasks' is the study planner (task, subject, due date, status: Not Started/"
+            "In Progress/Done). Notion can be out of date, so cross-check with emails."
+        ),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "database": {"type": "string", "enum": ["applications", "tasks"]},
+                "status": {"type": "string", "description": "Optional status filter, case-insensitive."},
+            },
+            "required": ["database"],
+        },
+    },
+]
+
+# Maps the tool name the LLM asks for to the Python function the agent loop should run.
+TOOL_FUNCTIONS = {
+    "search_emails": search_emails,
+    "query_notion": query_notion,
+}
