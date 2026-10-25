@@ -1,17 +1,26 @@
-import os
+from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
-from google import genai
-from google.genai import types
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-load_dotenv()
+from agent import run_agent
 
 app = FastAPI(title="Mosaic")
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-SYSTEM_PROMPT = "You are Mosaic, a helpful assistant for a college student. Keep answers short."
+STATIC_DIR = Path(__file__).parent / "static"
+INDEX_PAGE = STATIC_DIR / "index.html"
+
+# Serves the compiled frontend (chat.js, built from frontend/chat.ts with `npm run build`).
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/")
+def index():
+    """Serve the chat page. Serving it from the same server as /chat (same origin) means
+    the page's fetch() calls need no CORS setup."""
+    return FileResponse(INDEX_PAGE)
 
 
 class ChatRequest(BaseModel):
@@ -32,14 +41,11 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    """Send the user's question to Gemini with Mosaic's system prompt and return its reply.
+    """Answer the user's question with the agent loop over their Gmail and Notion data.
 
-    This is a single LLM call with no tools, so the answer comes only from the model's
-    training knowledge, not from the user's Gmail or Notion data.
+    This route only handles HTTP: validating the request and shaping the response.
+    All agent logic lives in agent.py, so the agent can change without touching this file.
+    Declared with plain `def` (not `async def`) because run_agent makes blocking network
+    calls; FastAPI runs such routes in a worker thread so the server stays responsive.
     """
-    response = client.models.generate_content(
-        model="gemini-3.5-flash",
-        contents=request.question,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
-    )
-    return ChatResponse(answer=response.text)
+    return ChatResponse(answer=run_agent(request.question))

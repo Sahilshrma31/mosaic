@@ -6,6 +6,7 @@ agent loop never needs to change.
 """
 
 import json
+import re
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent / "mock_data"
@@ -25,29 +26,37 @@ NOTION_DATABASES = {
 }
 
 
+def _words(text: str) -> set[str]:
+    """Split text into lowercase whole words, so "os" matches "OS" but not "most" or "post"."""
+    return set(re.findall(r"\w+", text.lower()))
+
+
 def search_emails(query: str, max_results: int = 5) -> list[dict]:
-    """Search the inbox and return the best-matching emails, newest first.
+    """Search the inbox and return the best-matching emails, ranked by relevance.
 
-    Matching is a simple keyword AND search, like Gmail's own search box: every word in
-    `query` must appear somewhere in the sender, subject or body (case-insensitive).
-    For example, "razorpay interview" matches only mails containing both words.
+    A mail matches if it contains at least one query word (whole words, case-insensitive)
+    in its sender, subject or body. Mails matching more of the query words rank higher, so
+    "swiggy application" puts the rejection mail (both words) above a Swiggy food promo
+    (one word). Requiring every word instead made multi-word queries like
+    "assignment submission deadline" return nothing at all.
 
-    Results are sorted newest first on purpose. When two mails disagree (a deadline of
+    Ties are broken newest first on purpose. When two mails disagree (a deadline of
     25 Oct in one mail, extended to 30 Oct in a later one), the latest information comes
     first, which helps the LLM pick the correct answer.
 
     Returns at most `max_results` full email records (id, from, subject, date, labels,
-    body, url). An empty list means nothing matched, and the LLM can retry with fewer
-    or different keywords.
+    body, url). An empty list means no word matched, and the LLM can retry with
+    different keywords.
     """
-    words = query.lower().split()
-    matches = []
+    query_words = _words(query)
+    scored = []
     for mail in EMAILS:
-        text = f"{mail['from']} {mail['subject']} {mail['body']}".lower()
-        if all(word in text for word in words):
-            matches.append(mail)
-    matches.sort(key=lambda mail: mail["date"], reverse=True)
-    return matches[:max_results]
+        mail_words = _words(f"{mail['from']} {mail['subject']} {mail['body']}")
+        score = len(query_words & mail_words)
+        if score > 0:
+            scored.append((score, mail["date"], mail))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [mail for _, _, mail in scored[:max_results]]
 
 
 def query_notion(database: str, status: str | None = None) -> list[dict]:
@@ -76,11 +85,12 @@ TOOL_DECLARATIONS = [
     {
         "name": "search_emails",
         "description": (
-            "Search the user's Gmail inbox by keywords. Every keyword must appear in the "
-            "sender, subject or body. Results are newest first and include labels: mails "
-            "labelled CATEGORY_PROMOTIONS are usually ads, but can still hold important "
-            "notices. Use few, specific keywords (e.g. 'razorpay interview'); if nothing "
-            "matches, retry with fewer or different keywords."
+            "Search the user's Gmail inbox by keywords. Mails matching more keywords rank "
+            "higher; ties are newest first. Results include labels: mails labelled "
+            "CATEGORY_PROMOTIONS are usually ads, but can still hold important notices. "
+            "Use 1-3 specific keywords per topic (e.g. 'razorpay interview'). To look up "
+            "several independent topics (e.g. DBMS, OS lab, ML project), call this tool "
+            "several times in the SAME turn, one topic per call, instead of one per turn."
         ),
         "parameters_json_schema": {
             "type": "object",
