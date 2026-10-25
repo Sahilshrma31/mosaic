@@ -61,7 +61,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Flat 60% OFF on your next 3 orders!",
     "date": "2026-10-23T19:30:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Hungry? Get flat 60% off up to Rs 120 on your next 3 orders. Use code FEAST60. Valid till Sunday.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_006"
   },
@@ -215,7 +215,7 @@
     "to": "all-students@college.edu",
     "subject": "Last date for end-semester exam registration: 28 October",
     "date": "2026-10-16T09:00:00+05:30",
-    "labels": ["CATEGORY_UPDATES"],
+    "labels": ["INBOX", "CATEGORY_UPDATES"],
     "body": "All students must complete end-semester exam registration and pay the exam fee of Rs 1,500 on the ERP portal by 28 October 2026. Students who miss this deadline will not be allowed to sit for the exams.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_020"
   },
@@ -226,7 +226,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Your favourite biryani is 40% off tonight",
     "date": "2026-10-22T20:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Craving biryani? Get 40% off at top-rated restaurants near you. Offer valid tonight only.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_021"
   },
@@ -237,7 +237,7 @@
     "to": "sahil@student.college.edu",
     "subject": "30+ new Software Engineer Intern jobs in Bengaluru",
     "date": "2026-10-23T07:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "New jobs matching your preferences: SDE Intern at Meesho, Backend Intern at Zepto, SWE Intern at Uber and 27 more.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_022"
   },
@@ -248,7 +248,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Learn Generative AI: enroll free this week",
     "date": "2026-10-21T08:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Start the Generative AI for Everyone course for free. Earn a certificate to boost your resume.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_023"
   },
@@ -259,7 +259,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Win Rs 2 lakh in the FinTech Hackathon 2026",
     "date": "2026-10-20T10:30:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Registrations are open for the FinTech Hackathon 2026. Teams of up to 4. Last date to register: 5 November.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_024"
   },
@@ -270,7 +270,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Great Indian Festival: laptops starting at Rs 29,999",
     "date": "2026-10-19T09:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Biggest deals of the year on laptops, headphones and smartphones. Extra 10% off with SBI cards.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_025"
   },
@@ -281,7 +281,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Your wishlist items are on sale",
     "date": "2026-10-18T18:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "3 items in your wishlist are now up to 70% off. Grab them before they are gone.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_026"
   },
@@ -292,7 +292,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Get 3 months of Premium for Rs 59",
     "date": "2026-10-17T12:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Limited-time student offer: 3 months of Spotify Premium for just Rs 59.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_027"
   },
@@ -303,7 +303,7 @@
     "to": "sahil@student.college.edu",
     "subject": "System Design Interview course: now Rs 449",
     "date": "2026-10-16T11:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Crack your next system design interview. Top-rated course now at Rs 449 for 24 hours.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_028"
   },
@@ -314,7 +314,7 @@
     "to": "sahil@student.college.edu",
     "subject": "How I cracked my Google interview in 3 months",
     "date": "2026-10-22T06:30:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Today's top stories: How I cracked my Google interview in 3 months, 10 Python tricks, and more.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_029"
   },
@@ -325,7 +325,7 @@
     "to": "all-students@college.edu",
     "subject": "Google on-campus online test: register by 26 October",
     "date": "2026-10-22T21:40:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Google will conduct an on-campus online coding test for SWE Intern 2027 on 1 November 2026. Eligible students MUST register on the T&P portal by 26 October 2026, 6:00 PM. Students who do not register will not receive the test link, even if they have applied on the Google careers site.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_030"
   },
@@ -336,7 +336,7 @@
     "to": "sahil@student.college.edu",
     "subject": "You've won a scratch card!",
     "date": "2026-10-21T14:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Pay any bill this week and get a scratch card with cashback up to Rs 500.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_031"
   },
@@ -347,7 +347,7 @@
     "to": "sahil@student.college.edu",
     "subject": "50% off your next 2 rides",
     "date": "2026-10-20T08:15:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Ride more, pay less. Get 50% off your next 2 Uber Go rides this weekend.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_032"
   },
@@ -358,7 +358,7 @@
     "to": "sahil@student.college.edu",
     "subject": "TLDR: new open-source LLM beats benchmarks",
     "date": "2026-10-23T06:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Big tech: a new open-source LLM tops coding benchmarks. Programming: why Rust is growing in backend teams.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_033"
   },
@@ -369,7 +369,7 @@
     "to": "sahil@student.college.edu",
     "subject": "[GitHub] A third-party OAuth application was added to your account",
     "date": "2026-10-19T22:10:00+05:30",
-    "labels": ["CATEGORY_UPDATES"],
+    "labels": ["INBOX", "CATEGORY_UPDATES"],
     "body": "A third-party OAuth application (VS Code) with read:user scope was recently authorized to access your account.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_034"
   },
@@ -380,7 +380,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Weekly Contest 520 starts this Sunday",
     "date": "2026-10-23T10:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Join Weekly Contest 520 this Sunday at 8:00 AM IST. Top 100 win LeetCoins.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_035"
   },
@@ -391,7 +391,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Recruiters are looking for profiles like yours",
     "date": "2026-10-18T09:30:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "12 recruiters viewed profiles like yours this week. Update your profile to get noticed.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_036"
   },
@@ -402,7 +402,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Work from home internships with stipend up to Rs 25,000",
     "date": "2026-10-17T17:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Apply now to 500+ work from home internships in web development, data science and marketing.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_037"
   },
@@ -413,7 +413,7 @@
     "to": "sahil@student.college.edu",
     "subject": "New this week on Netflix",
     "date": "2026-10-22T15:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "New releases this week: 2 new series and a much-awaited movie sequel.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_038"
   },
@@ -424,7 +424,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Diwali essentials delivered in 10 minutes",
     "date": "2026-10-24T09:00:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Diyas, sweets and decorations delivered in 10 minutes. Free delivery above Rs 199.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_039"
   },
@@ -435,7 +435,7 @@
     "to": "sahil@student.college.edu",
     "subject": "Cashback on your next recharge",
     "date": "2026-10-21T11:30:00+05:30",
-    "labels": ["CATEGORY_PROMOTIONS"],
+    "labels": ["INBOX", "CATEGORY_PROMOTIONS"],
     "body": "Recharge your mobile with Paytm and get assured cashback up to Rs 50.",
     "url": "https://mail.google.com/mail/u/0/#inbox/msg_040"
   }

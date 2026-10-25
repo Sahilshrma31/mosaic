@@ -1,15 +1,20 @@
-"""Tools the agent can call: Gmail search and Notion queries.
+"""Data access behind the MCP servers: Gmail search and Notion queries.
 
-These currently read local mock JSON files. Swapping their bodies for real Gmail API and
-Notion API calls must keep the function names, parameters and return shapes the same, so the
-agent loop never needs to change.
+gmail_server.py and notion_server.py expose these functions as MCP tools. MOSAIC_DATA in
+.env picks the backend: "mock" (default) reads the local JSON files, whose correct answers
+are known, which the evals rely on; "live" calls the real APIs. Both backends return the
+same shapes, so neither the servers nor the agent know which one is in use.
 """
 
 import json
+import os
 import re
 from pathlib import Path
 
+import notion_api  # also loads .env
+
 DATA_DIR = Path(__file__).parent / "mock_data"
+LIVE = os.getenv("MOSAIC_DATA", "mock") == "live"
 
 
 def _load(filename: str) -> list[dict]:
@@ -67,61 +72,16 @@ def query_notion(database: str, status: str | None = None) -> list[dict]:
     `status` is matched case-insensitively, e.g. "applied", "interview" or "not started".
     With no status, every row of the database is returned.
 
-    Raises ValueError for an unknown database name. The agent loop catches this and sends
-    the error message back to the LLM, so it can correct itself and call the tool again.
+    In live mode the rows come from the Notion API on every call, so edits made in Notion
+    show up immediately. Status is filtered here in Python rather than in the Notion query,
+    because Notion's filters are case-sensitive and the LLM may send "applied" or "Applied".
+
+    Raises ValueError for an unknown database name, and RuntimeError if the Notion API
+    fails. The agent loop sends either error message back to the LLM instead of crashing.
     """
     if database not in NOTION_DATABASES:
         raise ValueError(f"Unknown database '{database}'. Use 'applications' or 'tasks'.")
-    rows = NOTION_DATABASES[database]
+    rows = notion_api.query(database) if LIVE else NOTION_DATABASES[database]
     if status:
         rows = [row for row in rows if row["status"].lower() == status.lower()]
     return rows
-
-
-# Tool schemas sent to the LLM. The model never sees the Python code above, only these
-# names, descriptions and JSON Schema parameters. It decides which tool to call (and with
-# what arguments) purely from this text, so the descriptions matter as much as the code.
-TOOL_DECLARATIONS = [
-    {
-        "name": "search_emails",
-        "description": (
-            "Search the user's Gmail inbox by keywords. Mails matching more keywords rank "
-            "higher; ties are newest first. Results include labels: mails labelled "
-            "CATEGORY_PROMOTIONS are usually ads, but can still hold important notices. "
-            "Use 1-3 specific keywords per topic (e.g. 'razorpay interview'). To look up "
-            "several independent topics (e.g. DBMS, OS lab, ML project), call this tool "
-            "several times in the SAME turn, one topic per call, instead of one per turn."
-        ),
-        "parameters_json_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Space-separated keywords."},
-                "max_results": {"type": "integer", "description": "Max mails to return (default 5)."},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "query_notion",
-        "description": (
-            "Read the user's Notion databases. 'applications' is the internship tracker "
-            "(company, role, status: Applied/Interview/Rejected/Offer, applied date, notes). "
-            "'tasks' is the study planner (task, subject, due date, status: Not Started/"
-            "In Progress/Done). Notion can be out of date, so cross-check with emails."
-        ),
-        "parameters_json_schema": {
-            "type": "object",
-            "properties": {
-                "database": {"type": "string", "enum": ["applications", "tasks"]},
-                "status": {"type": "string", "description": "Optional status filter, case-insensitive."},
-            },
-            "required": ["database"],
-        },
-    },
-]
-
-# Maps the tool name the LLM asks for to the Python function the agent loop should run.
-TOOL_FUNCTIONS = {
-    "search_emails": search_emails,
-    "query_notion": query_notion,
-}

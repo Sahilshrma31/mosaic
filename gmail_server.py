@@ -5,7 +5,10 @@ it as a subprocess and talks to it over stdin/stdout using JSON-RPC (the "stdio"
 The client discovers the tools with list_tools, so the schema below is all it needs to know.
 """
 
+from typing import Annotated
+
 from mcp.server.mcpserver import MCPServer
+from pydantic import Field
 
 import tools
 
@@ -15,8 +18,9 @@ server = MCPServer(
 )
 
 
-# The MCP SDK builds the tool's JSON Schema from the type hints (query: str, max_results: int)
-# and uses `description` as the text the LLM reads when deciding whether to call this tool.
+# The MCP SDK builds the tool's JSON Schema from the type hints: `str` becomes "string", a
+# default value makes the argument optional, and `Field(description=...)` becomes the
+# argument's description. `description` below is the text the LLM reads to pick this tool.
 @server.tool(
     description=(
         "Search the user's Gmail inbox by keywords. Mails matching more keywords rank "
@@ -27,7 +31,10 @@ server = MCPServer(
         "several times in the SAME turn, one topic per call, instead of one per turn."
     )
 )
-def search_emails(query: str, max_results: int = 5) -> list[dict]:
+def search_emails(
+    query: Annotated[str, Field(description="Space-separated keywords, 1-3 per topic.")],
+    max_results: Annotated[int, Field(description="Max mails to return.")] = 5,
+) -> list[dict]:
     """Delegate to the mock search; swapping in the Gmail API only changes tools.search_emails."""
     return tools.search_emails(query, max_results)
 

@@ -1,15 +1,28 @@
-"""Hand-written agent loop: the LLM asks for tool calls, we run them, and repeat until it answers."""
+"""Hand-written agent loop: the LLM asks for tool calls, we run them, and repeat until it answers.
 
+The agent is an MCP client. It never imports the tools; it discovers them from the MCP
+servers listed in SERVERS and sends every tool call to the server that owns that tool.
+"""
+
+import asyncio
 import os
+import sys
+from contextlib import AsyncExitStack
 from datetime import date
+from pathlib import Path
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import errors, types
-
-from tools import TOOL_DECLARATIONS, TOOL_FUNCTIONS
+from mcp import Client, StdioServerParameters
 
 load_dotenv()
+
+BASE_DIR = Path(__file__).parent
+
+# One MCP server per data source. Adding a source (e.g. Google Calendar) means writing a new
+# server and adding its script here; the loop below doesn't change.
+SERVERS = ["gmail_server.py", "notion_server.py"]
 
 # The SDK silently retries failed requests with growing waits, which can take minutes on an
 # overloaded model. Fail fast instead (60s timeout, 2 attempts) so the fallback model can step in.
@@ -19,7 +32,7 @@ client = genai.Client(
 )
 
 MODEL = "gemini-3.5-flash"
-# Used when MODEL is overloaded (503) or times out (504).
+# Used when MODEL is overloaded (503) or out of free quota (429).
 FALLBACK_MODEL = "gemini-3.6-flash"
 
 # Upper bound on LLM round trips per question. Without it, a model that keeps asking for
@@ -36,40 +49,86 @@ Rules:
 - Ignore promotional mails unless they contain an action the student must take.
 - Keep the final answer short and clear."""
 
-CONFIG = types.GenerateContentConfig(
-    system_instruction=SYSTEM_PROMPT,
-    tools=[types.Tool(function_declarations=TOOL_DECLARATIONS)],
-)
 
-# Used for the last allowed step: tool calls are switched off (mode NONE), so the model must
-# answer from the evidence it already gathered instead of the user getting no answer at all.
-FINAL_STEP_CONFIG = CONFIG.model_copy(
-    update={
-        "system_instruction": SYSTEM_PROMPT
-        + "\n- You cannot call tools any more. Answer now with the evidence you already have,"
-        " and briefly say what you could not check.",
-        "tool_config": types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode="NONE")),
-    }
-)
+class ToolHub:
+    """Keeps one open MCP connection per server and routes each tool call to the right one.
 
+    start() launches every script in SERVERS as a subprocess, asks each server for its tools
+    (list_tools), and converts every MCP tool into a Gemini function declaration. MCP and
+    Gemini describe a tool with the same three things (name, description, JSON Schema for
+    the arguments), so the conversion is a direct copy.
 
-def run_tool(name: str, args: dict) -> dict:
-    """Run one tool the LLM asked for and wrap the outcome in a dict for the LLM to read.
-
-    Never raises. An unknown tool name, bad arguments or an exception inside the tool all
-    come back as {"error": "..."}, so the LLM sees what went wrong and can retry with a
-    different call instead of the whole request crashing.
+    The connections stay open until stop(). Normally `async with Client(...)` closes the
+    connection at the end of its block; the AsyncExitStack keeps all of them open together
+    and closes them all at once, so a question never pays the cost of starting processes.
     """
-    func = TOOL_FUNCTIONS.get(name)
-    if func is None:
-        return {"error": f"Unknown tool '{name}'. Available tools: {list(TOOL_FUNCTIONS)}"}
-    try:
-        return {"result": func(**args)}
-    except Exception as exc:
-        return {"error": f"{type(exc).__name__}: {exc}"}
+
+    def __init__(self) -> None:
+        self._stack = AsyncExitStack()
+        self._route: dict[str, Client] = {}  # tool name -> the server connection that owns it
+        self.declarations: list[types.FunctionDeclaration] = []
+
+    async def start(self) -> None:
+        for script in SERVERS:
+            server = StdioServerParameters(command=sys.executable, args=[str(BASE_DIR / script)])
+            connection = await self._stack.enter_async_context(Client(server))
+            for tool in (await connection.list_tools()).tools:
+                if tool.name in self._route:
+                    raise RuntimeError(f"Tool '{tool.name}' is offered by more than one MCP server")
+                self._route[tool.name] = connection
+                self.declarations.append(
+                    types.FunctionDeclaration(
+                        name=tool.name,
+                        description=tool.description,
+                        parameters_json_schema=tool.input_schema,
+                    )
+                )
+        print(f"[mcp] connected to {len(SERVERS)} servers, tools: {list(self._route)}")
+
+    async def call(self, name: str, args: dict) -> dict:
+        """Run one tool on its MCP server and wrap the outcome in a dict for the LLM to read.
+
+        Never raises. An unknown tool, an error raised inside the tool (the server reports it
+        with is_error) or a broken connection all come back as {"error": "..."}, so the LLM
+        sees what went wrong and can retry instead of the whole request crashing.
+        """
+        connection = self._route.get(name)
+        if connection is None:
+            return {"error": f"Unknown tool '{name}'. Available tools: {list(self._route)}"}
+        try:
+            result = await connection.call_tool(name, args)
+        except Exception as exc:
+            return {"error": f"{type(exc).__name__}: {exc}"}
+        if result.is_error:
+            return {"error": " ".join(getattr(block, "text", "") for block in result.content)}
+        return {"result": (result.structured_content or {}).get("result", [])}
+
+    async def stop(self) -> None:
+        await self._stack.aclose()
 
 
-def run_agent(question: str) -> str:
+def _configs(hub: ToolHub) -> tuple[types.GenerateContentConfig, types.GenerateContentConfig]:
+    """Build the normal config (tools on) and the last-step config (tools off) from the hub's tools.
+
+    The last allowed step switches tool calls off (mode NONE), so the model must answer from
+    the evidence it already gathered instead of the user getting no answer at all.
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        tools=[types.Tool(function_declarations=hub.declarations)],
+    )
+    final_step_config = config.model_copy(
+        update={
+            "system_instruction": SYSTEM_PROMPT
+            + "\n- You cannot call tools any more. Answer now with the evidence you already have,"
+            " and briefly say what you could not check.",
+            "tool_config": types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode="NONE")),
+        }
+    )
+    return config, final_step_config
+
+
+async def run_agent(question: str, hub: ToolHub) -> str:
     """Answer one question, switching to FALLBACK_MODEL if MODEL fails for a transient reason.
 
     Two errors trigger the fallback:
@@ -82,7 +141,7 @@ def run_agent(question: str) -> str:
     """
     for model in (MODEL, FALLBACK_MODEL):
         try:
-            return _run_loop(question, model)
+            return await _run_loop(question, model, hub)
         except errors.ServerError as exc:
             print(f"[{model}] server error {exc.code}, trying the next model...")
         except errors.ClientError as exc:
@@ -92,8 +151,8 @@ def run_agent(question: str) -> str:
     return "Mosaic's AI models are overloaded or out of free quota right now. Please try again later."
 
 
-def _run_loop(question: str, model: str) -> str:
-    """Answer one question by looping between the LLM and the tools.
+async def _run_loop(question: str, model: str, hub: ToolHub) -> str:
+    """Answer one question by looping between the LLM and the MCP tools.
 
     Each round sends the whole conversation so far (the question, every earlier tool call
     and every tool result) because the LLM is stateless and remembers nothing between
@@ -103,12 +162,16 @@ def _run_loop(question: str, model: str) -> str:
     The loop is capped at MAX_STEPS rounds so a confused model can't loop forever. The last
     round runs with tools disabled, which forces a best-effort answer from the evidence
     gathered so far (graceful degradation) instead of an empty failure.
+
+    The Gemini call uses the async client (client.aio) so that, inside FastAPI, waiting for
+    the model doesn't block other requests.
     """
+    config, final_step_config = _configs(hub)
     contents = [types.Content(role="user", parts=[types.Part.from_text(text=question)])]
 
     for step in range(1, MAX_STEPS + 1):
-        config = FINAL_STEP_CONFIG if step == MAX_STEPS else CONFIG
-        response = client.models.generate_content(model=model, contents=contents, config=config)
+        step_config = final_step_config if step == MAX_STEPS else config
+        response = await client.aio.models.generate_content(model=model, contents=contents, config=step_config)
 
         if not response.function_calls:
             print(f"[step {step}] final answer, no tool calls")
@@ -120,7 +183,7 @@ def _run_loop(question: str, model: str) -> str:
         # Run every requested tool and send all the results back in one turn.
         result_parts = []
         for call in response.function_calls:
-            result = run_tool(call.name, call.args or {})
+            result = await hub.call(call.name, call.args or {})
             print(f"[step {step}] {call.name}({call.args}) -> {_summary(result)}")
             result_parts.append(
                 types.Part(function_response=types.FunctionResponse(id=call.id, name=call.name, response=result))
@@ -137,5 +200,16 @@ def _summary(result: dict) -> str:
     return f"{len(result['result'])} results"
 
 
+async def _main() -> None:
+    """Ask one question from the terminal: start the MCP servers, answer, shut them down."""
+    question = input("Ask Mosaic: ")
+    hub = ToolHub()
+    await hub.start()
+    try:
+        print(await run_agent(question, hub))
+    finally:
+        await hub.stop()
+
+
 if __name__ == "__main__":
-    print(run_agent(input("Ask Mosaic: ")))
+    asyncio.run(_main())

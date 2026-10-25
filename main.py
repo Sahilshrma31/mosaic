@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -5,9 +6,24 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from agent import run_agent
+from agent import ToolHub, run_agent
 
-app = FastAPI(title="Mosaic")
+hub = ToolHub()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start the MCP servers once when the app boots, and shut them down when it stops.
+
+    Code before `yield` runs at startup, code after it at shutdown. Every request in
+    between reuses the same open connections instead of launching new server processes.
+    """
+    await hub.start()
+    yield
+    await hub.stop()
+
+
+app = FastAPI(title="Mosaic", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).parent / "static"
 INDEX_PAGE = STATIC_DIR / "index.html"
@@ -40,12 +56,12 @@ class ChatResponse(BaseModel):
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
     """Answer the user's question with the agent loop over their Gmail and Notion data.
 
     This route only handles HTTP: validating the request and shaping the response.
     All agent logic lives in agent.py, so the agent can change without touching this file.
-    Declared with plain `def` (not `async def`) because run_agent makes blocking network
-    calls; FastAPI runs such routes in a worker thread so the server stays responsive.
+    It's `async def` because run_agent awaits the LLM and the MCP servers; while one
+    question waits on them, the server keeps handling other requests.
     """
-    return ChatResponse(answer=run_agent(request.question))
+    return ChatResponse(answer=await run_agent(request.question, hub))
