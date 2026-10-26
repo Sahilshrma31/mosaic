@@ -9,9 +9,10 @@ same shapes, so neither the servers nor the agent know which one is in use.
 import json
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 
-import notion_api  # also loads .env
+import notion_api  # also loads .env, so MOSAIC_DATA below is set even inside MCP subprocesses
 
 DATA_DIR = Path(__file__).parent / "mock_data"
 LIVE = os.getenv("MOSAIC_DATA", "mock") == "live"
@@ -31,37 +32,50 @@ NOTION_DATABASES = {
 }
 
 
-def _words(text: str) -> set[str]:
+def words(text: str) -> set[str]:
     """Split text into lowercase whole words, so "os" matches "OS" but not "most" or "post"."""
     return set(re.findall(r"\w+", text.lower()))
 
 
-def search_emails(query: str, max_results: int = 5) -> list[dict]:
-    """Search the inbox and return the best-matching emails, ranked by relevance.
+def rank(query: str, mails: list[dict], max_results: int) -> list[dict]:
+    """Rank mails by how many query words they contain, and return the best `max_results`.
 
-    A mail matches if it contains at least one query word (whole words, case-insensitive)
-    in its sender, subject or body. Mails matching more of the query words rank higher, so
+    A mail counts if it contains at least one query word (whole words, case-insensitive) in
+    its sender, subject or body. Mails matching more of the query words rank higher, so
     "swiggy application" puts the rejection mail (both words) above a Swiggy food promo
     (one word). Requiring every word instead made multi-word queries like
     "assignment submission deadline" return nothing at all.
 
     Ties are broken newest first on purpose. When two mails disagree (a deadline of
     25 Oct in one mail, extended to 30 Oct in a later one), the latest information comes
-    first, which helps the LLM pick the correct answer.
+    first, which helps the LLM pick the correct answer. Dates are compared as datetimes,
+    not strings, because real mails carry different time zones.
 
-    Returns at most `max_results` full email records (id, from, subject, date, labels,
-    body, url). An empty list means no word matched, and the LLM can retry with
-    different keywords.
+    Shared by the mock and the live Gmail search, so both always rank the same way.
     """
-    query_words = _words(query)
+    query_words = words(query)
     scored = []
-    for mail in EMAILS:
-        mail_words = _words(f"{mail['from']} {mail['subject']} {mail['body']}")
-        score = len(query_words & mail_words)
+    for mail in mails:
+        score = len(query_words & words(f"{mail['from']} {mail['subject']} {mail['body']}"))
         if score > 0:
-            scored.append((score, mail["date"], mail))
+            scored.append((score, datetime.fromisoformat(mail["date"]), mail))
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [mail for _, _, mail in scored[:max_results]]
+
+
+def search_emails(query: str, max_results: int = 5) -> list[dict]:
+    """Search the inbox and return the best-matching emails, ranked by relevance (see rank()).
+
+    In live mode the candidates come from the real Gmail inbox (gmail_api.search); in mock
+    mode from mock_data/emails.json. Returns at most `max_results` full email records (id,
+    from, subject, date, labels, body, url). An empty list means no word matched, and the
+    LLM can retry with different keywords.
+    """
+    if LIVE:
+        import gmail_api  # imported only in live mode, so mock mode never needs a Gmail login
+
+        return gmail_api.search(query, max_results)
+    return rank(query, EMAILS, max_results)
 
 
 def query_notion(database: str, status: str | None = None) -> list[dict]:

@@ -35,8 +35,13 @@ def search_emails(
     query: Annotated[str, Field(description="Space-separated keywords, 1-3 per topic.")],
     max_results: Annotated[int, Field(description="Max mails to return.")] = 5,
 ) -> list[dict]:
-    """Delegate to the mock search; swapping in the Gmail API only changes tools.search_emails."""
-    return tools.search_emails(query, max_results)
+    """Search via tools.search_emails and tag each mail with the evidence fields.
+
+    Every MCP server returns items with `source` and `title` (plus the existing `id`, `url`
+    and `date`). The agent's citation registry relies only on these shared fields, so it
+    never needs to know what a mail or a Notion row looks like inside.
+    """
+    return [{"source": "gmail", "title": mail["subject"], **mail} for mail in tools.search_emails(query, max_results)]
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+export {}; // makes this file a module, so its names don't clash with chat.ts in the global scope
+
 // Behaviour for the landing page: the product demo (tabs that replay an example agent run),
 // scroll-in reveals, and the sticky nav border. The live chat lives in chat.ts.
 

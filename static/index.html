@@ -235,6 +235,29 @@
     .msg.user { align-self: flex-end; background: var(--black); color: #fff; border-bottom-right-radius: 4px; }
     .msg.bot { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
     .msg.bot.pending { color: var(--muted); }
+    .msg.bot.rich { white-space: normal; max-width: 88%; }
+    .answer p { margin: 0 0 8px; }
+    .answer p:last-child, .answer ul:last-child, .answer ol:last-child { margin-bottom: 0; }
+    .answer ul, .answer ol { margin: 0 0 8px; padding-left: 20px; }
+    .answer li { margin: 2px 0; }
+    .answer strong { font-weight: 600; }
+    .answer h4 { margin: 14px 0 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .answer h4:first-child { margin-top: 0; }
+    .answer hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
+    .answer code.inline { font-family: var(--mono); font-size: 13px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+    a.cite:hover { opacity: .75; }
+    .msg-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+    .msg-sources .source-card { display: block; transition: border-color .15s ease; }
+    .msg-sources a.source-card:hover { border-color: #bdb8b2; }
+    .msg-trace { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; font-size: 13px; color: var(--muted); }
+    .msg-trace summary { cursor: pointer; user-select: none; }
+    .msg-trace ol { margin: 8px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .msg-trace .trace-plan { margin-top: 8px; color: var(--text); font-weight: 500; }
+    .msg-trace .trace-plan ol { list-style: decimal; padding-left: 20px; font-weight: 400; color: var(--muted); }
+    .trace-steps li { display: flex; gap: 8px; align-items: baseline; }
+    .trace-steps .round { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+    .trace-steps code { font-family: var(--mono); font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+    .trace-steps .result { margin-left: auto; white-space: nowrap; }
     .msg.bot.pending::before { content: "\00B7\00B7\00B7\00B7  "; }
     #chat-form { display: flex; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
     #question { flex: 1; min-width: 0; padding: 14px 18px; font: inherit; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; }

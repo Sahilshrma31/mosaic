@@ -52,7 +52,8 @@ def get_gmail_service(interactive: bool = True):
         creds = flow.run_local_server(port=0)  # opens the browser and waits for "Allow"
 
     TOKEN_FILE.write_text(creds.to_json())
-    return build("gmail", "v1", credentials=creds)
+    # cache_discovery=False: the default discovery cache needs an old library and only logs a warning.
+    return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
 if __name__ == "__main__":

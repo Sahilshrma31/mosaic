@@ -24,15 +24,28 @@ server = MCPServer(
         "Read the user's Notion databases. 'applications' is the internship tracker "
         "(company, role, status: Applied/Interview/Rejected/Offer, applied date, notes). "
         "'tasks' is the study planner (task, subject, due date, status: Not Started/"
-        "In Progress/Done). Notion can be out of date, so cross-check with emails."
+        "In Progress/Done); it also holds interview-prep tasks, so check it for anything "
+        "about an interview. Notion can be out of date, so cross-check with emails."
     )
 )
 def query_notion(
     database: Literal["applications", "tasks"],
     status: Annotated[str | None, Field(description="Optional status filter, case-insensitive.")] = None,
 ) -> list[dict]:
-    """Delegate to the mock Notion query; swapping in the Notion API only changes tools.query_notion."""
-    return tools.query_notion(database, status)
+    """Query via tools.query_notion and tag each row with the evidence fields (see gmail_server.py).
+
+    The title is the row's name column (company or task) and the date is its key date
+    (applied date or due date), so citations read like "Notion: Swiggy, 2026-09-22".
+    """
+    return [
+        {
+            "source": "notion",
+            "title": row.get("company") or row.get("task", ""),
+            "date": row.get("applied_date") or row.get("due_date"),
+            **row,
+        }
+        for row in tools.query_notion(database, status)
+    ]
 
 
 if __name__ == "__main__":

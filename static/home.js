@@ -1,6 +1,3 @@
-"use strict";
-// Behaviour for the landing page: the product demo (tabs that replay an example agent run),
-// scroll-in reveals, and the sticky nav border. The live chat lives in chat.ts.
 // Example runs on the mock data. They mirror real runs of the agent, so the page never
 // promises behaviour the agent doesn't have.
 const SCENARIOS = {
@@ -161,3 +158,4 @@ document.querySelectorAll(".reveal").forEach((node) => observer.observe(node));
 // Show a hairline under the nav only once the page has scrolled.
 const nav = document.getElementById("nav");
 window.addEventListener("scroll", () => nav?.classList.toggle("scrolled", window.scrollY > 8), { passive: true });
+export {};
