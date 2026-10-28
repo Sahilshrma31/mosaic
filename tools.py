@@ -7,6 +7,7 @@ same shapes, so neither the servers nor the agent know which one is in use.
 """
 
 import json
+import math
 import os
 import re
 from datetime import datetime
@@ -38,13 +39,23 @@ def words(text: str) -> set[str]:
 
 
 def rank(query: str, mails: list[dict], max_results: int) -> list[dict]:
-    """Rank mails by how many query words they contain, and return the best `max_results`.
+    """Rank mails against the query and return the best `max_results`.
 
     A mail counts if it contains at least one query word (whole words, case-insensitive) in
-    its sender, subject or body. Mails matching more of the query words rank higher, so
-    "swiggy application" puts the rejection mail (both words) above a Swiggy food promo
-    (one word). Requiring every word instead made multi-word queries like
+    its sender, subject or body. Requiring every word instead made multi-word queries like
     "assignment submission deadline" return nothing at all.
+
+    Scoring: each matched word adds its weight, and rare words weigh more (IDF, inverse
+    document frequency). In "swiggy cred groww backend intern application", "swiggy" appears
+    in 2 mails and "intern" in about 15, so a Swiggy mail is worth more than one more generic
+    "intern" match. Counting every word equally let mails full of common words (job alerts,
+    other companies' invites) fill the top results and push out the Swiggy rejection.
+
+    Coverage: before the rest is filled by score, every query word gets at least one result
+    that has it in the sender or subject, rarest word first. When the LLM packs several
+    companies into one search, each company is guaranteed a slot, so none of them silently
+    disappears. A mention in the body doesn't count as covering a word: the Razorpay invite
+    says "Google Meet" in its body, and that must not take the slot of the Google test mail.
 
     Ties are broken newest first on purpose. When two mails disagree (a deadline of
     25 Oct in one mail, extended to 30 Oct in a later one), the latest information comes
@@ -54,13 +65,38 @@ def rank(query: str, mails: list[dict], max_results: int) -> list[dict]:
     Shared by the mock and the live Gmail search, so both always rank the same way.
     """
     query_words = words(query)
-    scored = []
-    for mail in mails:
-        score = len(query_words & words(f"{mail['from']} {mail['subject']} {mail['body']}"))
-        if score > 0:
-            scored.append((score, datetime.fromisoformat(mail["date"]), mail))
+    headlines = [words(f"{mail['from']} {mail['subject']}") for mail in mails]
+    mail_words = [headline | words(mail["body"]) for headline, mail in zip(headlines, mails)]
+    found_in = {word: sum(word in text for text in mail_words) for word in query_words}
+    weight = {word: math.log(1 + len(mails) / count) for word, count in found_in.items() if count}
+
+    scored = []  # (score, date, index into mails, matched words)
+    for i, text in enumerate(mail_words):
+        matched = query_words & text
+        if matched:
+            score = sum(weight[word] for word in matched)
+            scored.append((score, datetime.fromisoformat(mails[i]["date"]), i, matched))
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
-    return [mail for _, _, mail in scored[:max_results]]
+
+    def headline_has(p: int, word: str) -> bool:
+        return word in headlines[scored[p][2]]
+
+    picked: list[int] = []  # positions in `scored`
+    for word in sorted(weight, key=weight.get, reverse=True):
+        if len(picked) == max_results:
+            break
+        if any(headline_has(p, word) for p in picked):
+            continue  # an already picked mail covers this word
+        candidates = [p for p in range(len(scored)) if headline_has(p, word)]
+        if candidates:  # the word only appears in mail bodies: let the score decide
+            picked.append(candidates[0])
+    for p in range(len(scored)):
+        if len(picked) == max_results:
+            break
+        if p not in picked:
+            picked.append(p)
+
+    return [mails[scored[p][2]] for p in sorted(picked)]
 
 
 def search_emails(query: str, max_results: int = 5) -> list[dict]:

@@ -93,10 +93,16 @@ function renderInline(line: string, sources: Map<number, Source>): Node[] {
     const italic = piece.match(/^\*([^*]+)\*$/);
     const code = piece.match(/^`([^`]+)`$/);
     const cite = piece.match(/^\[(\d+)\]$/);
+    // Bold and italic text is parsed again, so citations or code inside them still render,
+    // e.g. *(Note: Razorpay [5] is a general SDE role)* keeps [5] as a clickable chip.
     if (bold) {
-      nodes.push(el("strong", "", bold[1]));
+      const strong = el("strong");
+      strong.append(...renderInline(bold[1], sources));
+      nodes.push(strong);
     } else if (italic) {
-      nodes.push(el("em", "", italic[1]));
+      const em = el("em");
+      em.append(...renderInline(italic[1], sources));
+      nodes.push(em);
     } else if (code) {
       nodes.push(el("code", "inline", code[1]));
     } else if (cite && sources.has(Number(cite[1]))) {

@@ -1,9 +1,9 @@
 """Live Gmail search: fetch candidate mails from the Gmail API and rank them like the mock does.
 
 Gmail's own search ANDs the keywords ("DBMS OS ML project" only matches mails containing all
-four words), which made multi-word queries return nothing. So we ask Gmail for mails matching
-ANY of the words, flatten each one into the same dict the mock data uses, and let tools.rank()
-pick the best ones with the exact scoring the mock search uses.
+four words), which made multi-word queries return nothing. So we search Gmail once per word,
+flatten every candidate into the same dict the mock data uses, and let tools.rank() pick the
+best ones with the exact scoring the mock search uses.
 """
 
 import base64
@@ -14,10 +14,13 @@ from urllib.parse import quote
 from gmail_auth import get_gmail_service
 from tools import rank, words
 
-# How many matching mails to fetch before ranking. Gmail returns matches newest first, not by
-# relevance, so this must be comfortably larger than max_results. They're fetched in one batch
-# request, so a larger number costs response size rather than extra round trips.
-CANDIDATES = 15
+# Candidates fetched per query word before ranking. Gmail returns matches newest first, not by
+# relevance. One shared OR query of 15 let common words ("intern", "application") fill every
+# slot with recent mails, so an older Swiggy rejection never even reached the ranking; a few
+# candidates per word guarantee every word brings its own mails.
+PER_WORD = 4
+# Cap on candidates in total. Gmail advises at most 50 calls per batch request.
+MAX_CANDIDATES = 40
 
 _service = None
 _account = None  # the logged-in address, e.g. mosaic.test.sahil@gmail.com
@@ -78,46 +81,66 @@ def _flatten(message: dict) -> dict:
     }
 
 
-def _fetch_all(gmail, message_ids: list[str]) -> list[dict]:
-    """Fetch full messages for all ids in ONE HTTP round trip using a Gmail batch request.
+def _run_batch(gmail, requests: list) -> list[dict]:
+    """Send many Gmail API calls in ONE HTTP round trip (a batch request), replies in order.
 
     Calling messages.get once per id took ~0.8s each on a slow network (7s for 8 mails).
-    A batch packs all the gets into a single request and Google returns every reply together.
-    Each reply arrives through the callback; a mail that fails on its own (e.g. deleted in
-    the meantime) is skipped, but if every one fails, the first error is raised.
+    A batch packs all the calls into a single request and Google returns every reply together.
+    A call that fails on its own (e.g. a mail deleted in the meantime) is skipped, but if every
+    one fails, the first error is raised.
     """
-    messages, errors = [], []
+    replies: dict[str, dict] = {}
+    errors = []
 
     def collect(request_id, response, exception):
         if exception is None:
-            messages.append(response)
+            replies[request_id] = response
         else:
             errors.append(exception)
 
     batch = gmail.new_batch_http_request(callback=collect)
-    for message_id in message_ids:
-        batch.add(gmail.users().messages().get(userId="me", id=message_id, format="full"))
+    for i, request in enumerate(requests):
+        batch.add(request, request_id=str(i))
     batch.execute()
 
-    if errors and not messages:
+    if errors and not replies:
         raise errors[0]
-    return messages
+    return [replies[str(i)] for i in range(len(requests)) if str(i) in replies]
+
+
+def _candidate_ids(gmail, query_words: list[str]) -> list[str]:
+    """Search Gmail once per word (all in one batch) and merge the ids, taking turns per word.
+
+    Taking turns (first hit of every word, then second hit of every word, ...) means that if
+    MAX_CANDIDATES cuts the list, every word has still contributed its best candidates.
+    """
+    lists = _run_batch(
+        gmail, [gmail.users().messages().list(userId="me", q=word, maxResults=PER_WORD) for word in query_words]
+    )
+    per_word = [[ref["id"] for ref in found.get("messages", [])] for found in lists]
+    ids: list[str] = []
+    for turn in range(PER_WORD):
+        for word_ids in per_word:
+            if turn < len(word_ids) and word_ids[turn] not in ids:
+                ids.append(word_ids[turn])
+    return ids[:MAX_CANDIDATES]
 
 
 def search(query: str, max_results: int = 5) -> list[dict]:
     """Return the best-matching mails from the real inbox, ranked by tools.rank().
 
-    Two Gmail calls in total: messages.list with an OR query to get candidate ids, then one
-    batch request that fetches all those messages.
+    Two round trips in total: one batch of per-word searches for candidate ids, then one
+    batch that fetches all those messages.
     """
     query_words = sorted(words(query))
     if not query_words:
         return []
 
     gmail = _gmail()
-    found = gmail.users().messages().list(userId="me", q=" OR ".join(query_words), maxResults=CANDIDATES).execute()
-    message_ids = [ref["id"] for ref in found.get("messages", [])]
+    message_ids = _candidate_ids(gmail, query_words)
     if not message_ids:
         return []
-    mails = [_flatten(message) for message in _fetch_all(gmail, message_ids)]
-    return rank(query, mails, max_results)
+    messages = _run_batch(
+        gmail, [gmail.users().messages().get(userId="me", id=message_id, format="full") for message_id in message_ids]
+    )
+    return rank(query, [_flatten(message) for message in messages], max_results)
