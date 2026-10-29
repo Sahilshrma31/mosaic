@@ -1,0 +1,219 @@
+[
+  {
+    "id": "razorpay_round1_time",
+    "category": "simple lookup",
+    "question": "When is my Razorpay interview?",
+    "must_include": ["28(st|nd|rd|th)?\\s*oct|oct\\w*\\s*28|10-28", "3(:00)?\\s*(pm|p\\.m\\.)|15:00"],
+    "expected_sources": [["msg_003"]],
+    "relevant_sources": ["msg_003", "msg_004", "app_002", "task_006"]
+  },
+  {
+    "id": "dbms_latest_deadline",
+    "category": "latest wins",
+    "question": "When is my DBMS assignment due?",
+    "must_include": ["30(st|nd|rd|th)?\\s*oct|oct\\w*\\s*30|10-30"],
+    "expected_sources": [["msg_002"]],
+    "relevant_sources": ["msg_001", "msg_002", "task_001"]
+  },
+  {
+    "id": "swiggy_mismatch",
+    "category": "cross-source mismatch",
+    "question": "What's the status of my Swiggy application?",
+    "must_include": ["reject|not (be )?moving forward|not move forward", "applied"],
+    "expected_sources": [["msg_005"], ["app_003"]],
+    "relevant_sources": ["msg_005", "app_003"]
+  },
+  {
+    "id": "microsoft_mismatch",
+    "category": "cross-source mismatch",
+    "question": "What's the status of my Microsoft application?",
+    "must_include": ["interview", "nov"],
+    "expected_sources": [["msg_007"]],
+    "relevant_sources": ["msg_007", "app_007"]
+  },
+  {
+    "id": "google_buried_registration",
+    "category": "buried mail",
+    "question": "Is there anything I need to do for my Google application?",
+    "must_include": ["regist", "26(st|nd|rd|th)?\\s*oct|oct\\w*\\s*26|10-26"],
+    "expected_sources": [["msg_030"]],
+    "relevant_sources": ["msg_030", "msg_011", "app_001"]
+  },
+  {
+    "id": "due_today",
+    "category": "date awareness",
+    "question": "What do I need to do today?",
+    "today": "2026-10-26",
+    "must_include": ["regist", "google|t&p|placement", "graph|dsa"],
+    "expected_sources": [["msg_030"], ["task_005"]],
+    "relevant_sources": ["msg_030", "msg_011", "app_001", "task_005", "task_001", "msg_001", "msg_002", "task_002", "msg_014", "task_006", "msg_003", "msg_004", "app_002"]
+  },
+  {
+    "id": "razorpay_everything",
+    "category": "completeness",
+    "question": "Give me everything about my Razorpay interview",
+    "must_include": [
+      "28(st|nd|rd|th)?\\s*oct|oct\\w*\\s*28|10-28",
+      "3(:00)?\\s*(pm|p\\.m\\.)|15:00",
+      "low.?level design|lld",
+      "27(st|nd|rd|th)?\\s*oct|oct\\w*\\s*27|10-27"
+    ],
+    "expected_sources": [["msg_003"], ["msg_004"], ["task_006"]],
+    "relevant_sources": ["msg_003", "msg_004", "app_002", "task_006", "task_005"]
+  },
+  {
+    "id": "next_7_days_submissions",
+    "category": "completeness",
+    "question": "What do I need to submit in the next 7 days?",
+    "must_include": ["dbms", "30(st|nd|rd|th)?\\s*oct|oct\\w*\\s*30|10-30", "lab report|os lab", "proposal"],
+    "expected_sources": [["msg_002"], ["msg_014", "task_002"], ["msg_016", "task_004"]],
+    "relevant_sources": ["msg_001", "msg_002", "task_001", "msg_014", "task_002", "msg_016", "task_004", "msg_020", "task_009", "msg_015", "task_003", "task_005", "task_006"]
+  },
+  {
+    "id": "phonepe_deadline",
+    "category": "simple lookup",
+    "question": "By when do I have to respond to the PhonePe offer?",
+    "must_include": ["31(st|nd|rd|th)?\\s*oct|oct\\w*\\s*31|10-31"],
+    "expected_sources": [["msg_009"]],
+    "relevant_sources": ["msg_008", "msg_009", "app_008"]
+  },
+  {
+    "id": "phonepe_stipend",
+    "category": "simple lookup",
+    "question": "How much is the PhonePe stipend?",
+    "must_include": ["80,?000|80\\s*k"],
+    "expected_sources": [["msg_008", "app_008"]],
+    "relevant_sources": ["msg_008", "msg_009", "app_008"]
+  },
+  {
+    "id": "cred_round2",
+    "category": "simple lookup",
+    "question": "When is my CRED round 2 and what will it cover?",
+    "must_include": ["30(st|nd|rd|th)?\\s*oct|oct\\w*\\s*30|10-30", "11(:00)?\\s*(am|a\\.m\\.)", "system design"],
+    "expected_sources": [["msg_013"]],
+    "relevant_sources": ["msg_013", "app_006"]
+  },
+  {
+    "id": "exam_registration",
+    "category": "simple lookup",
+    "question": "What's the last date for end-semester exam registration, and how much is the fee?",
+    "must_include": ["28(st|nd|rd|th)?\\s*oct|oct\\w*\\s*28|10-28", "1,?500"],
+    "expected_sources": [["msg_020"]],
+    "relevant_sources": ["msg_020", "task_009"]
+  },
+  {
+    "id": "cn_quiz_syllabus",
+    "category": "simple lookup",
+    "question": "What's the syllabus for my Computer Networks quiz?",
+    "must_include": ["transport", "tcp|udp|congestion|handshake"],
+    "expected_sources": [["msg_015"]],
+    "relevant_sources": ["msg_015", "task_003"]
+  },
+  {
+    "id": "atlassian_event",
+    "category": "simple lookup",
+    "question": "Is there any Atlassian event I should attend?",
+    "must_include": ["27(st|nd|rd|th)?\\s*oct|oct\\w*\\s*27|10-27", "pre.?placement|talk"],
+    "expected_sources": [["msg_019"]],
+    "relevant_sources": ["msg_019", "msg_018", "app_009"]
+  },
+  {
+    "id": "all_rejections",
+    "category": "cross-source mismatch",
+    "question": "Which companies have rejected me?",
+    "must_include": ["swiggy", "zomato", "groww"],
+    "expected_sources": [["msg_005"]],
+    "relevant_sources": ["msg_005", "msg_010", "msg_017", "app_003", "app_004", "app_010"]
+  },
+  {
+    "id": "offers",
+    "category": "simple lookup",
+    "question": "Do I have any internship offers?",
+    "must_include": ["phonepe"],
+    "expected_sources": [["msg_008", "app_008"]],
+    "relevant_sources": ["msg_008", "msg_009", "app_008"]
+  },
+  {
+    "id": "no_data_amazon",
+    "category": "unanswerable",
+    "question": "When is my Amazon interview?",
+    "must_include": ["\\b(no|not|couldn['’]?t|could not|can['’]?t|cannot|don['’]?t|didn['’]?t|unable)\\b"],
+    "must_not_include": ["amazon[^.\\n]{0,60}\\b\\d{1,2}(st|nd|rd|th)?\\s*(oct|nov)"],
+    "expected_sources": [],
+    "relevant_sources": null
+  },
+  {
+    "id": "no_data_meesho",
+    "category": "unanswerable",
+    "question": "What's the status of my Meesho application?",
+    "must_include": ["\\b(no|not|couldn['’]?t|could not|can['’]?t|cannot|don['’]?t|didn['’]?t|haven['’]?t)\\b"],
+    "must_not_include": ["status (is|:)\\s*(applied|interview|rejected|offer)"],
+    "expected_sources": [],
+    "relevant_sources": null
+  },
+  {
+    "id": "memory_backend_roles",
+    "category": "memory",
+    "facts": ["The student prefers backend roles."],
+    "question": "Which of my applications fit my preferences?",
+    "must_include": ["cred", "swiggy", "groww"],
+    "expected_sources": [["app_006"], ["app_003", "msg_005"], ["app_010", "msg_017"]],
+    "relevant_sources": ["app_001", "app_002", "app_003", "app_004", "app_005", "app_006", "app_007", "app_008", "app_009", "app_010", "msg_005", "msg_013", "msg_017"]
+  },
+  {
+    "id": "followup_round2",
+    "category": "memory",
+    "history": [
+      ["user", "When is my Razorpay interview?"],
+      ["assistant", "Your Razorpay Round 1 is on 28 Oct at 3 PM IST on Google Meet."]
+    ],
+    "question": "What about Round 2?",
+    "must_include": ["low.?level design|lld"],
+    "expected_sources": [["msg_004"]],
+    "relevant_sources": ["msg_003", "msg_004", "app_002", "task_006"]
+  },
+  {
+    "id": "compiler_design_done",
+    "category": "simple lookup",
+    "question": "Have I finished my Compiler Design assignment?",
+    "must_include": ["\\b(yes|done|completed|finished|submitted)\\b"],
+    "must_not_include": ["\\bnot (yet )?(done|completed|finished|submitted|started)\\b"],
+    "expected_sources": [["task_008"]],
+    "relevant_sources": ["task_008"]
+  },
+  {
+    "id": "ml_proposal_requirements",
+    "category": "simple lookup",
+    "question": "What do I need to include in my ML project proposal?",
+    "must_include": ["problem", "dataset", "approach", "31(st|nd|rd|th)?\\s*oct|oct\\w*\\s*31|10-31"],
+    "expected_sources": [["msg_016"]],
+    "relevant_sources": ["msg_016", "task_004"]
+  },
+  {
+    "id": "flipkart_no_oa_yet",
+    "category": "unanswerable",
+    "question": "Has Flipkart sent me the online assessment link?",
+    "must_include": ["\\b(no|not)\\b|n['’]t\\b", "3 weeks|three weeks|waiting|pending|not yet|received your application|application (was )?received"],
+    "must_not_include": ["\\byes\\b[^.\\n]{0,40}\\b(sent|received|shared)\\b"],
+    "expected_sources": [["msg_012", "app_005"]],
+    "relevant_sources": ["msg_012", "app_005"]
+  },
+  {
+    "id": "os_lab_handwritten",
+    "category": "simple lookup",
+    "question": "Can I submit my OS lab report online?",
+    "must_include": ["handwritten", "27(st|nd|rd|th)?\\s*oct|oct\\w*\\s*27|10-27"],
+    "must_not_include": ["\\byes,? you can (submit|upload)"],
+    "expected_sources": [["msg_014"]],
+    "relevant_sources": ["msg_014", "task_002"]
+  },
+  {
+    "id": "no_data_cgpa",
+    "category": "unanswerable",
+    "question": "What is my current CGPA?",
+    "must_include": ["\\b(no|not|unable)\\b|n['’]t\\b"],
+    "must_not_include": ["\\b(cgpa|gpa)\\b[^.\\n]{0,25}\\b\\d{1,2}\\.\\d{1,2}\\b"],
+    "expected_sources": [],
+    "relevant_sources": null
+  }
+]

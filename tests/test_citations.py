@@ -56,5 +56,6 @@ def test_sources_come_from_the_registry_not_the_model():
     registry.tag({"result": [mail("msg_005", "Swiggy rejection")]})
     _, sources = registry.finalize("Rejected [1].")
     assert sources == [
-        {"n": 1, "source": "gmail", "title": "Swiggy rejection", "url": "https://mail/msg_005", "date": "2026-10-20"}
+        {"n": 1, "id": "msg_005", "source": "gmail", "title": "Swiggy rejection", "url": "https://mail/msg_005",
+         "date": "2026-10-20"}
     ]

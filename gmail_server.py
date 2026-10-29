@@ -28,7 +28,9 @@ server = MCPServer(
         "CATEGORY_PROMOTIONS are usually ads, but can still hold important notices. "
         "Use 1-3 specific keywords per topic (e.g. 'razorpay interview'). To look up "
         "several independent topics (e.g. DBMS, OS lab, ML project), call this tool "
-        "several times in the SAME turn, one topic per call, instead of one per turn."
+        "several times in the SAME turn, one topic per call, instead of one per turn. "
+        "Deadlines are written as dates in mails, so to find what is due on a day, "
+        "search for the date itself (e.g. '26 October')."
     )
 )
 def search_emails(

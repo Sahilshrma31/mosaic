@@ -40,6 +40,10 @@ client = genai.Client(
 # they're last resorts. All four were checked to emit correct tool calls with our MCP tools.
 MODELS = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
 
+# Public demo mode (MOSAIC_DEMO=1), for the deployed site that strangers can use. Visitors must
+# not write to long-term memory, so the `remember` tool isn't offered and any call to it is refused.
+DEMO_MODE = os.getenv("MOSAIC_DEMO") == "1"
+
 # Upper bound on LLM round trips per question. Without it, a model that keeps asking for
 # tools would loop forever (and burn through the free-tier rate limit).
 MAX_STEPS = 6
@@ -72,6 +76,9 @@ Rules:
 - Facts from long-term memory have no cite number; say "you told me" instead.
 - Compare every date with today's date: say clearly when a deadline is today, tomorrow or
   already past, and put anything due today first.
+- For questions about a day or period (today, tomorrow, this week), also search emails for
+  the dates themselves, e.g. "26 October": mails state deadlines as dates and rarely use the
+  word "deadline", so a topic search alone misses them.
 - When the student states a lasting fact or preference about themselves (goals, preferences,
   decisions, e.g. "Google is my dream company"), call `remember` with it as one short
   third-person sentence. Don't save one-off or temporary things, or facts already listed above.
@@ -94,14 +101,21 @@ class ToolHub:
     and closes them all at once, so a question never pays the cost of starting processes.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, data_mode: str | None = None) -> None:
+        """`data_mode` ("mock" or "live") overrides MOSAIC_DATA from .env for the servers.
+
+        The evals pass "mock" so they always run on the data with known answers, whatever
+        .env says. It works because the SDK merges `env` into the subprocess environment
+        and load_dotenv never overrides a variable that is already set.
+        """
         self._stack = AsyncExitStack()
         self._route: dict[str, Client] = {}  # tool name -> the server connection that owns it
+        self._env = {"MOSAIC_DATA": data_mode} if data_mode else None
         self.declarations: list[types.FunctionDeclaration] = []
 
     async def start(self) -> None:
         for script in SERVERS:
-            server = StdioServerParameters(command=sys.executable, args=[str(BASE_DIR / script)])
+            server = StdioServerParameters(command=sys.executable, args=[str(BASE_DIR / script)], env=self._env)
             connection = await self._stack.enter_async_context(Client(server))
             for tool in (await connection.list_tools()).tools:
                 if tool.name in self._route:
@@ -222,8 +236,8 @@ class EvidenceRegistry:
         for old, new in renumber.items():
             item = self.items[old - 1]
             sources.append(
-                {"n": new, "source": item.get("source", ""), "title": item.get("title", ""),
-                 "url": item.get("url"), "date": item.get("date")}
+                {"n": new, "id": item.get("id"), "source": item.get("source", ""),
+                 "title": item.get("title", ""), "url": item.get("url"), "date": item.get("date")}
             )
         return text, sources
 
@@ -233,31 +247,37 @@ class AgentReply:
     """Everything one question produced: the answer, the sources it cites, and how it got there."""
 
     answer: str
-    sources: list[dict] = field(default_factory=list)  # [{n, source, title, url, date}]
+    sources: list[dict] = field(default_factory=list)  # [{n, id, source, title, url, date}]
     plan: list[str] = field(default_factory=list)  # sub-questions, if the model decomposed
     trace: list[dict] = field(default_factory=list)  # [{round, call, result}] per tool call
+    model: str = ""  # which model in MODELS produced the answer ("" if none did)
 
 
-def _system_prompt() -> str:
-    """The system prompt with today's date and the long-term facts filled in (read fresh each time)."""
+def _system_prompt(today: date | None = None) -> str:
+    """The system prompt with today's date and the long-term facts filled in (read fresh each time).
+
+    `today` is normally the real date; the evals pin it so date questions ("what's due
+    today?") have the same correct answer on every run.
+    """
     facts = memory.all_facts()
     return SYSTEM_PROMPT.format(
-        today=date.today().isoformat(),
+        today=(today or date.today()).isoformat(),
         facts="\n".join(f"- {fact}" for fact in facts) if facts else "- (none yet)",
     )
 
 
-def _configs(hub: ToolHub) -> tuple[types.GenerateContentConfig, types.GenerateContentConfig]:
+def _configs(hub: ToolHub, today: date | None = None) -> tuple[types.GenerateContentConfig, types.GenerateContentConfig]:
     """Build the normal config (tools on) and the last-step config (tools off) for one question.
 
     Built per question, not once at import, because the system prompt carries today's date
     and the current long-term facts. The last allowed step switches tool calls off (mode
     NONE), so the model must answer from the evidence it already gathered.
     """
-    system_prompt = _system_prompt()
+    system_prompt = _system_prompt(today)
+    local_tools = [PLAN_DECLARATION] if DEMO_MODE else [PLAN_DECLARATION, REMEMBER_DECLARATION]
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
-        tools=[types.Tool(function_declarations=[PLAN_DECLARATION, REMEMBER_DECLARATION, *hub.declarations])],
+        tools=[types.Tool(function_declarations=[*local_tools, *hub.declarations])],
     )
     final_step_config = config.model_copy(
         update={
@@ -289,7 +309,9 @@ def _history_contents(conversation_id: str | None) -> list[types.Content]:
     ]
 
 
-async def run_agent(question: str, hub: ToolHub, conversation_id: str | None = None) -> AgentReply:
+async def run_agent(
+    question: str, hub: ToolHub, conversation_id: str | None = None, today: date | None = None
+) -> AgentReply:
     """Answer one question with memory, moving down MODELS when a model fails transiently.
 
     Memory: the conversation's recent turns are loaded before the loop, and the question
@@ -307,7 +329,7 @@ async def run_agent(question: str, hub: ToolHub, conversation_id: str | None = N
     history = _history_contents(conversation_id)
     for model in MODELS:
         try:
-            reply = await _run_loop(question, model, hub, history)
+            reply = await _run_loop(question, model, hub, history, today)
         except errors.ServerError as exc:
             print(f"[{model}] server error {exc.code}, trying the next model...")
             continue
@@ -323,7 +345,9 @@ async def run_agent(question: str, hub: ToolHub, conversation_id: str | None = N
     return AgentReply("Mosaic's AI models are overloaded or out of free quota right now. Please try again later.")
 
 
-async def _run_loop(question: str, model: str, hub: ToolHub, history: list[types.Content]) -> AgentReply:
+async def _run_loop(
+    question: str, model: str, hub: ToolHub, history: list[types.Content], today: date | None = None
+) -> AgentReply:
     """Answer one question by looping between the LLM and the MCP tools.
 
     Each round sends the whole conversation so far (earlier turns, the question, every
@@ -343,7 +367,7 @@ async def _run_loop(question: str, model: str, hub: ToolHub, history: list[types
     The Gemini call uses the async client (client.aio) so that, inside FastAPI, waiting for
     the model doesn't block other requests.
     """
-    config, final_step_config = _configs(hub)
+    config, final_step_config = _configs(hub, today)
     contents = [*history, types.Content(role="user", parts=[types.Part.from_text(text=question)])]
     evidence = EvidenceRegistry()
     plan: list[str] = []
@@ -356,7 +380,7 @@ async def _run_loop(question: str, model: str, hub: ToolHub, history: list[types
         if not response.function_calls:
             print(f"[step {step}] final answer from {model}, no tool calls")
             answer, sources = evidence.finalize(response.text or "")
-            return AgentReply(answer, sources, plan, trace)
+            return AgentReply(answer, sources, plan, trace, model)
 
         # Keep the model's own turn (its function calls) in the history, unchanged.
         contents.append(response.candidates[0].content)
@@ -368,6 +392,8 @@ async def _run_loop(question: str, model: str, hub: ToolHub, history: list[types
             if call.name == "plan":
                 plan = [str(q) for q in args.get("sub_questions", [])]
                 result = {"result": "Plan noted. Answer every sub-question, citing the evidence."}
+            elif call.name == "remember" and DEMO_MODE:
+                result = {"error": "Long-term memory is turned off in the public demo."}
             elif call.name == "remember":
                 saved = memory.remember(str(args.get("fact", "")))
                 result = {"result": "Saved to long-term memory." if saved else "Already known."}
@@ -382,7 +408,7 @@ async def _run_loop(question: str, model: str, hub: ToolHub, history: list[types
         contents.append(types.Content(role="user", parts=result_parts))
 
     return AgentReply("Sorry, I couldn't finish answering within the step limit. Try a more specific question.",
-                      plan=plan, trace=trace)
+                      plan=plan, trace=trace, model=model)
 
 
 def _format_args(args: dict) -> str:

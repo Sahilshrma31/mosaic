@@ -1,0 +1,21 @@
+# Pinned to the versions the project was built and tested with, so a fresh install (e.g. on
+# Render) runs exactly the same code. Install with: pip install -r requirements.txt
+
+# Web server
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.1
+
+# LLM and MCP
+google-genai==2.33.0
+mcp==2.3.0
+
+# Data sources: Notion REST and .env loading (mock and live), Gmail API + OAuth (live mode only)
+httpx==0.28.1
+python-dotenv==1.2.4
+google-api-python-client==2.201.0
+google-auth-oauthlib==1.5.0
+google-auth==2.62.0
+
+# Tests (not needed to run the app)
+pytest==9.1.1
