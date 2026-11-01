@@ -51,6 +51,14 @@ def test_comma_list_is_split_and_deduplicated():
     assert answer == "Both say so [1][2]."
 
 
+def test_citation_range_is_expanded_and_capped_at_the_evidence():
+    registry = EvidenceRegistry()
+    registry.tag({"result": [mail("msg_001", "A"), mail("msg_002", "B")]})
+    answer, sources = registry.finalize("All of them [1-99]. Again [1–2].")
+    assert answer == "All of them [1][2]. Again [1][2]."
+    assert [source["id"] for source in sources] == ["msg_001", "msg_002"]
+
+
 def test_sources_come_from_the_registry_not_the_model():
     registry = EvidenceRegistry()
     registry.tag({"result": [mail("msg_005", "Swiggy rejection")]})

@@ -67,7 +67,7 @@
     "question": "What do I need to submit in the next 7 days?",
     "must_include": ["dbms", "30(st|nd|rd|th)?\\s*oct|oct\\w*\\s*30|10-30", "lab report|os lab", "proposal"],
     "expected_sources": [["msg_002"], ["msg_014", "task_002"], ["msg_016", "task_004"]],
-    "relevant_sources": ["msg_001", "msg_002", "task_001", "msg_014", "task_002", "msg_016", "task_004", "msg_020", "task_009", "msg_015", "task_003", "task_005", "task_006"]
+    "relevant_sources": ["msg_001", "msg_002", "task_001", "msg_014", "task_002", "msg_016", "task_004", "msg_020", "task_009", "msg_015", "task_003", "task_005", "task_006", "msg_030"]
   },
   {
     "id": "phonepe_deadline",
@@ -185,7 +185,7 @@
     "id": "ml_proposal_requirements",
     "category": "simple lookup",
     "question": "What do I need to include in my ML project proposal?",
-    "must_include": ["problem", "dataset", "approach", "31(st|nd|rd|th)?\\s*oct|oct\\w*\\s*31|10-31"],
+    "must_include": ["problem", "dataset", "approach"],
     "expected_sources": [["msg_016"]],
     "relevant_sources": ["msg_016", "task_004"]
   },

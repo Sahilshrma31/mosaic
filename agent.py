@@ -181,7 +181,7 @@ REMEMBER_DECLARATION = types.FunctionDeclaration(
     },
 )
 
-CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")  # [3] or [1, 2]
+CITATION = re.compile(r"\[(\d+(?:\s*[-–,]\s*\d+)*)\]")  # [3], [1, 2] or [1-10]
 
 
 class EvidenceRegistry:
@@ -218,18 +218,20 @@ class EvidenceRegistry:
         """Validate the answer's citations and renumber them 1, 2, 3... in reading order.
 
         The model may cite [7] and [12] out of 15 items it saw; the user should see [1] and [2]
-        with exactly two sources listed. "[1, 2]" is rewritten as "[1][2]", and numbers that
-        match no evidence are removed. Returns the cleaned answer and the cited sources.
+        with exactly two sources listed. "[1, 2]" and "[1-2]" are rewritten as "[1][2]", and
+        numbers that match no evidence are removed. Returns the cleaned answer and the cited sources.
         """
         renumber: dict[int, int] = {}  # number the model used -> number the user sees
 
         def replace(match: re.Match) -> str:
             kept = []
-            for raw in match.group(1).split(","):
-                old = int(raw)
-                if 1 <= old <= len(self.items):
-                    renumber.setdefault(old, len(renumber) + 1)
-                    kept.append(renumber[old])
+            for part in match.group(1).split(","):
+                first, _, last = part.replace("–", "-").partition("-")
+                # Capped at the evidence count, so a huge range like [1-99999] can't loop for long.
+                for old in range(int(first), min(int(last or first), len(self.items)) + 1):
+                    if old >= 1:
+                        renumber.setdefault(old, len(renumber) + 1)
+                        kept.append(renumber[old])
             return "".join(f"[{n}]" for n in dict.fromkeys(kept))
 
         text = re.sub(r" +([.,;])", r"\1", CITATION.sub(replace, answer))  # no " ." left by a dropped cite
