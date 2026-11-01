@@ -10,13 +10,18 @@ import json
 import math
 import os
 import re
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import notion_api  # also loads .env, so MOSAIC_DATA below is set even inside MCP subprocesses
 
 DATA_DIR = Path(__file__).parent / "mock_data"
 LIVE = os.getenv("MOSAIC_DATA", "mock") == "live"
+
+# The mock data was written as if today were 24 Oct 2026: the Razorpay interview is "in four
+# days", the Google registration "in two". Anything answering from the mock data (the public
+# demo, the evals) pins "today" to this date, or every deadline would read as long past.
+MOCK_TODAY = date(2026, 10, 24)
 
 
 def _load(filename: str) -> list[dict]:

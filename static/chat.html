@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mosaic Chat</title>
+  <meta name="description" content="Ask Mosaic about deadlines, interviews and applications across Gmail and Notion.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="app">
+  <header class="app-bar">
+    <a class="logo" href="/"><span class="logo-mark"><span></span><span></span><span></span><span></span></span>Mosaic</a>
+    <span class="app-badge" id="data-badge" hidden></span>
+    <span class="app-bar-spacer"></span>
+    <a class="pill sm" href="/">How it works</a>
+  </header>
+
+  <div class="app-body">
+    <aside class="app-side">
+      <section data-mode="mock" hidden>
+        <h4>About this demo</h4>
+        <p>Mosaic is answering from a sample student's inbox and Notion workspace, so you can check
+          every answer against its sources.</p>
+        <ul class="side-facts">
+          <li><span class="src gmail">Gmail</span>40 emails, half of them promotions</li>
+          <li><span class="src notion">Notion</span>10 applications, 9 study tasks</li>
+        </ul>
+        <p class="side-note" id="today-note"></p>
+      </section>
+      <section data-mode="live" hidden>
+        <h4>Connected</h4>
+        <ul class="side-facts">
+          <li><span class="src gmail">Gmail</span>your inbox</li>
+          <li><span class="src notion">Notion</span>your tracker and planner</li>
+        </ul>
+      </section>
+      <section>
+        <h4>Try asking</h4>
+        <div class="side-questions">
+          <button class="side-q suggestion" type="button">When is my Razorpay interview?</button>
+          <button class="side-q suggestion" type="button">What's the status of my Swiggy application?</button>
+          <button class="side-q suggestion" type="button">What do I need to submit this week?</button>
+          <button class="side-q suggestion" type="button">Which companies have rejected me?</button>
+          <button class="side-q suggestion" type="button">Is there anything I need to do for my Google application?</button>
+        </div>
+      </section>
+      <section>
+        <h4>Reading an answer</h4>
+        <p>Numbered chips like <span class="cite">1</span> link to the email or Notion page a claim
+          came from. "Agent trace" lists every search the agent made.</p>
+      </section>
+    </aside>
+
+    <main class="app-main">
+      <div id="messages">
+        <div class="empty" id="empty">
+          <h3>What do you want to know?</h3>
+          <div>Deadlines, interviews, applications. Ask in your own words.</div>
+          <div class="suggestions">
+            <button class="pill sm suggestion" type="button">When is my Razorpay interview?</button>
+            <button class="pill sm suggestion" type="button">What do I need to submit this week?</button>
+            <button class="pill sm suggestion" type="button">Status of my Swiggy application?</button>
+          </div>
+        </div>
+      </div>
+      <form id="chat-form">
+        <input id="question" placeholder="Ask Mosaic anything..." autocomplete="off" maxlength="1000" required autofocus>
+        <button class="pill dark" id="send">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script type="module" src="/static/chat.js"></script>
+</body>
+</html>

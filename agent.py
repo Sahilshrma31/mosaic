@@ -8,6 +8,7 @@ import asyncio
 import os
 import re
 import sys
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import date
@@ -309,14 +310,34 @@ def _history_contents(conversation_id: str | None) -> list[types.Content]:
     ]
 
 
+# Receives progress events while a question is being answered, so the page can show live steps
+# instead of a blank wait. Events are small JSON-ready dicts:
+#   {"type": "thinking", "round": 2}                       a model call is starting
+#   {"type": "step", "round": 1, "tool": "search_emails", "args": {...}, "result": "2 results"}
+#   {"type": "retry"}                                      restarting on the next model
+EventCallback = Callable[[dict], Awaitable[None]]
+
+
+async def _emit(on_event: EventCallback | None, event: dict) -> None:
+    if on_event:
+        await on_event(event)
+
+
 async def run_agent(
-    question: str, hub: ToolHub, conversation_id: str | None = None, today: date | None = None
+    question: str,
+    hub: ToolHub,
+    conversation_id: str | None = None,
+    today: date | None = None,
+    on_event: EventCallback | None = None,
 ) -> AgentReply:
     """Answer one question with memory, moving down MODELS when a model fails transiently.
 
     Memory: the conversation's recent turns are loaded before the loop, and the question
     and answer are saved after it, so the next question in the same conversation can build
     on them. Nothing is saved when every model failed, so error messages never become history.
+
+    `on_event`, if given, is called with live progress events (see EventCallback); /chat/stream
+    forwards them to the page. A "retry" event means the steps so far are being thrown away.
 
     Two errors trigger the next model:
     - 5xx: Google's side is busy (503) or timed out (504), so another model is likely to work.
@@ -327,26 +348,32 @@ async def run_agent(
     fail the same way on any model, so they are raised instead.
     """
     history = _history_contents(conversation_id)
-    for model in MODELS:
+    for i, model in enumerate(MODELS):
         try:
-            reply = await _run_loop(question, model, hub, history, today)
+            reply = await _run_loop(question, model, hub, history, today, on_event)
         except errors.ServerError as exc:
             print(f"[{model}] server error {exc.code}, trying the next model...")
-            continue
         except errors.ClientError as exc:
             if exc.code != 429:
                 raise
             print(f"[{model}] free-tier quota used up (429), trying the next model...")
-            continue
-        if conversation_id:
-            memory.add_message(conversation_id, "user", question)
-            memory.add_message(conversation_id, "assistant", reply.answer)
-        return reply
+        else:
+            if conversation_id:
+                memory.add_message(conversation_id, "user", question)
+                memory.add_message(conversation_id, "assistant", reply.answer)
+            return reply
+        if i + 1 < len(MODELS):
+            await _emit(on_event, {"type": "retry"})
     return AgentReply("Mosaic's AI models are overloaded or out of free quota right now. Please try again later.")
 
 
 async def _run_loop(
-    question: str, model: str, hub: ToolHub, history: list[types.Content], today: date | None = None
+    question: str,
+    model: str,
+    hub: ToolHub,
+    history: list[types.Content],
+    today: date | None = None,
+    on_event: EventCallback | None = None,
 ) -> AgentReply:
     """Answer one question by looping between the LLM and the MCP tools.
 
@@ -375,6 +402,7 @@ async def _run_loop(
 
     for step in range(1, MAX_STEPS + 1):
         step_config = final_step_config if step == MAX_STEPS else config
+        await _emit(on_event, {"type": "thinking", "round": step})
         response = await client.aio.models.generate_content(model=model, contents=contents, config=step_config)
 
         if not response.function_calls:
@@ -402,6 +430,7 @@ async def _run_loop(
             summary = _summary(result)
             print(f"[step {step}] {call.name}({args}) -> {summary}")
             trace.append({"round": step, "call": f"{call.name}({_format_args(args)})", "result": summary})
+            await _emit(on_event, {"type": "step", "round": step, "tool": call.name, "args": args, "result": summary})
             result_parts.append(
                 types.Part(function_response=types.FunctionResponse(id=call.id, name=call.name, response=result))
             )

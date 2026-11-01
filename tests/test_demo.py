@@ -27,7 +27,7 @@ def demo(monkeypatch):
 def test_demo_stops_answering_after_the_daily_limit(demo, monkeypatch):
     calls = []
 
-    async def fake_run_agent(question, hub, conversation_id=None):
+    async def fake_run_agent(question, hub, conversation_id=None, today=None):
         calls.append(question)
         return AgentReply(answer="An answer.")
 

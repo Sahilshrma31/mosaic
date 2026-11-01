@@ -25,10 +25,17 @@ function el(tag, className = "", text = "") {
 function safeUrl(url) {
     return url && /^https?:\/\//.test(url) ? url : null;
 }
+/** A small "GMAIL" / "NOTION" tag naming where an item came from. */
+function sourceTag(source) {
+    return el("span", `src ${source}`, source === "gmail" ? "Gmail" : "Notion");
+}
 function formatDate(value) {
     if (!value)
         return "";
-    const parsed = new Date(value);
+    // A bare date ("2026-10-24") is read by Date() as UTC midnight, which shows as 23 Oct in
+    // timezones behind UTC. Build it as a local date instead; full timestamps parse as usual.
+    const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const parsed = dateOnly ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])) : new Date(value);
     return isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 /**
@@ -148,7 +155,7 @@ function renderSources(sources) {
             card.rel = "noopener noreferrer";
         }
         const head = el("div", "source-head");
-        head.append(el("span", "cite", String(source.n)), el("i", `dot ${source.source}`), document.createTextNode(source.source === "gmail" ? "Gmail" : "Notion"));
+        head.append(el("span", "cite", String(source.n)), sourceTag(source.source));
         card.append(head, el("b", "", source.title), el("span", "meta", formatDate(source.date)));
         grid.append(card);
     }
@@ -178,33 +185,168 @@ function renderTrace(data) {
     details.append(list);
     return details;
 }
-/** POST the question to /chat and return the full reply. Throws on network errors and non-200 replies. */
-async function askMosaic(question) {
+/**
+ * POST the question to /chat/stream and call `onEvent` for every progress event as it arrives.
+ * Resolves with the final answer; throws on network errors, non-200 replies and "error" events.
+ *
+ * The reply is a stream of Server-Sent Events ("data: {json}" blocks separated by a blank
+ * line). EventSource can't send a POST body, so the body is read chunk by chunk with fetch.
+ * A chunk can end in the middle of an event, so the unfinished tail is kept for the next one.
+ */
+async function askMosaic(question, onEvent) {
     const body = { question, conversation_id: conversationId };
-    const response = await fetch("/chat", {
+    const response = await fetch("/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
-    if (!response.ok)
+    if (!response.ok || !response.body)
         throw new Error(`Server returned ${response.status}`);
-    return response.json();
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    for (;;) {
+        const { value, done } = await reader.read();
+        if (done)
+            break;
+        buffer += value;
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() ?? "";
+        for (const block of blocks) {
+            if (!block.startsWith("data: "))
+                continue;
+            const event = JSON.parse(block.slice(6));
+            if (event.type === "answer")
+                return event;
+            if (event.type === "error")
+                throw new Error(event.text);
+            onEvent(event);
+        }
+    }
+    throw new Error("The connection closed before the answer arrived");
 }
-// On submit: show the question, show "Thinking..." while the agent works, then replace it with
-// the formatted answer, its sources and the trace, or a readable error. The button is disabled
-// meanwhile to block double sends.
+/** "2 results" → "2 mails" / "10 rows"; errors become "failed"; anything else is hidden. */
+function friendlyResult(tool, result) {
+    if (result.startsWith("ERROR"))
+        return "failed";
+    const count = result.match(/^(\d+) results?$/);
+    if (!count)
+        return "";
+    const n = Number(count[1]);
+    const noun = tool === "search_emails" ? "mail" : "row";
+    return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+/** One live step line, e.g. [GMAIL] Searching "swiggy"  2 mails. */
+function renderLiveStep(event) {
+    const item = el("li", "appear");
+    const { tool, args } = event;
+    if (tool === "search_emails") {
+        item.append(sourceTag("gmail"), el("span", "what", `Searching “${String(args.query ?? "")}”`));
+    }
+    else if (tool === "query_notion") {
+        const status = args.status ? ` · ${String(args.status)}` : "";
+        item.append(sourceTag("notion"), el("span", "what", `Reading ${String(args.database ?? "")}${status}`));
+    }
+    else if (tool === "plan") {
+        const count = Array.isArray(args.sub_questions) ? args.sub_questions.length : 0;
+        item.append(el("span", "what", `Split the question into ${count} parts`));
+    }
+    else if (tool === "remember") {
+        item.append(el("span", "what", "Saving to memory"));
+    }
+    else {
+        item.append(el("span", "what", tool));
+    }
+    item.append(el("span", "result", friendlyResult(tool, event.result)));
+    return item;
+}
+/**
+ * The "working on it" bubble: live step lines, what the agent is doing now, and a timer.
+ * Every line comes from a real event (a model call starting, a tool call finishing), so the
+ * page never shows progress that didn't happen.
+ */
+function startLiveBubble() {
+    const bubble = addMessage("", "bot", true);
+    bubble.classList.add("live");
+    const steps = el("ol", "live-steps");
+    const label = el("span", "label", "Understanding your question");
+    const timer = el("span", "timer", "0s");
+    const status = el("div", "live-status");
+    status.append(el("span", "spinner"), label, timer);
+    bubble.append(steps, status);
+    const started = performance.now();
+    const tick = window.setInterval(() => {
+        timer.textContent = `${Math.round((performance.now() - started) / 1000)}s`;
+    }, 1000);
+    const handle = (event) => {
+        if (event.type === "thinking") {
+            label.textContent = event.round === 1 ? "Understanding your question" : "Reading what it found";
+        }
+        else if (event.type === "step") {
+            steps.append(renderLiveStep(event));
+        }
+        else if (event.type === "retry") {
+            // The next model starts over, so the steps so far no longer apply.
+            steps.replaceChildren(el("li", "note appear", "Retrying with a backup model"));
+            label.textContent = "Understanding your question";
+        }
+        messages.scrollTop = messages.scrollHeight;
+    };
+    return { bubble, handle, stop: () => window.clearInterval(tick) };
+}
+// Questions that work well on the sample data. After each answer, up to three whose topic
+// hasn't come up yet are offered as chips, so a visitor always has an easy next thing to try.
+// The topic is matched loosely, so "What's happening with Swiggy?" also retires the Swiggy chip.
+const SAMPLE_QUESTIONS = [
+    { question: "When is my Razorpay interview?", topic: /razorpay/i },
+    { question: "What do I need to submit this week?", topic: /submit|due|deadline/i },
+    { question: "Status of my Swiggy application?", topic: /swiggy/i },
+    { question: "Which companies have rejected me?", topic: /reject/i },
+    { question: "Do I have any internship offers?", topic: /offer/i },
+    { question: "Is there anything I need to do for my Google application?", topic: /google/i },
+];
+const asked = [];
+function showFollowUps() {
+    document.querySelector(".followups")?.remove();
+    const next = SAMPLE_QUESTIONS.filter(({ topic }) => !asked.some((question) => topic.test(question)))
+        .map(({ question }) => question)
+        .slice(0, 3);
+    if (!next.length)
+        return;
+    const row = el("div", "followups appear");
+    for (const question of next)
+        row.append(suggestionButton(question));
+    messages.append(row);
+}
+function suggestionButton(question) {
+    const button = el("button", "pill sm suggestion", question);
+    button.type = "button";
+    button.addEventListener("click", () => {
+        input.value = question;
+        form.requestSubmit();
+    });
+    return button;
+}
+// On submit: show the question and a live progress bubble, then replace it with the formatted
+// answer, its sources and the trace, or a readable error. The button is disabled meanwhile to
+// block double sends.
+let busy = false; // one question at a time: side-panel buttons submit the form even while one runs
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const question = input.value.trim();
-    if (!question)
+    if (!question || busy)
         return;
+    busy = true;
+    document.querySelector(".followups")?.remove();
+    asked.push(question);
     addMessage(question, "user");
     input.value = "";
     sendButton.disabled = true;
-    const reply = addMessage("Thinking...", "bot", true);
+    const live = startLiveBubble();
+    const reply = live.bubble;
     try {
-        const data = await askMosaic(question);
+        const data = await askMosaic(question, live.handle);
         const sources = new Map(data.sources.map((source) => [source.n, source]));
+        reply.classList.remove("live");
         reply.classList.add("rich");
         reply.replaceChildren(renderAnswer(data.answer, sources));
         if (data.sources.length)
@@ -212,23 +354,62 @@ form.addEventListener("submit", async (event) => {
         const trace = renderTrace(data);
         if (trace)
             reply.append(trace);
+        showFollowUps();
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        reply.classList.remove("live");
         reply.textContent = `Something went wrong: ${message}`;
     }
     finally {
+        busy = false;
+        live.stop();
         reply.classList.remove("pending");
         sendButton.disabled = false;
         input.focus();
         messages.scrollTop = messages.scrollHeight;
     }
 });
-// Suggested questions on the welcome screen: fill the input and submit through the same handler.
+// Suggested questions (welcome screen and side panel): fill the input and submit through the same handler.
 for (const button of document.querySelectorAll(".suggestion")) {
     button.addEventListener("click", () => {
         input.value = button.textContent ?? "";
         form.requestSubmit();
     });
+}
+/**
+ * Describe what Mosaic is answering from: a "Sample data" badge with the pinned date, and the
+ * matching side-panel section. On sample data the date matters: "due today" means 24 Oct 2026,
+ * not the visitor's real date, and the page says so.
+ */
+async function showDataSource() {
+    const response = await fetch("/config");
+    if (!response.ok)
+        return;
+    const config = await response.json();
+    const badge = byId("data-badge");
+    if (config.data === "mock") {
+        const day = config.today ? formatDate(config.today) : "";
+        badge.textContent = day ? `Sample data · today is ${day}` : "Sample data";
+        byId("today-note").textContent = day
+            ? `The sample data is set on ${day}, so "today" and "this week" are counted from that date.`
+            : "";
+    }
+    else {
+        badge.textContent = "Live · Gmail + Notion";
+    }
+    badge.hidden = false;
+    for (const section of document.querySelectorAll("[data-mode]")) {
+        section.hidden = section.dataset.mode !== config.data;
+    }
+}
+showDataSource().catch(() => { }); // the chat works without it; only the description is missing
+// A question passed in the link (the landing page's examples open /chat?q=...) is asked right
+// away. It's removed from the address bar first, so reloading the page doesn't ask it again.
+const linkedQuestion = new URLSearchParams(location.search).get("q");
+if (linkedQuestion) {
+    history.replaceState(null, "", location.pathname);
+    input.value = linkedQuestion;
+    form.requestSubmit();
 }
 export {};

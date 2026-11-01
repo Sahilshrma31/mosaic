@@ -74,8 +74,9 @@ function el(tag, className = "", text = "") {
 function citeBadge(n) {
     return el("span", "cite", String(n));
 }
-function dot(source) {
-    return el("i", `dot ${source}`);
+/** A small "GMAIL" / "NOTION" tag naming where an item came from. */
+function sourceTag(source) {
+    return el("span", `src ${source}`, source === "gmail" ? "Gmail" : "Notion");
 }
 /** Resolve after `ms` milliseconds (instantly when the user prefers reduced motion). */
 function wait(ms) {
@@ -97,7 +98,7 @@ async function play(scenario) {
         if (id !== runId)
             return;
         const item = el("li", "running appear");
-        item.append(el("span", "round", `Round ${step.round}`), dot(step.source), el("code", "", step.call), el("span", "result"));
+        item.append(el("span", "round", `Round ${step.round}`), sourceTag(step.source), el("code", "", step.call), el("span", "result"));
         traceList.append(item);
         await wait(650);
         if (id !== runId)
@@ -124,7 +125,7 @@ async function play(scenario) {
     scenario.sources.forEach((source, index) => {
         const card = el("div", "source-card");
         const head = el("div", "source-head");
-        head.append(citeBadge(index + 1), dot(source.source), document.createTextNode(source.source === "gmail" ? "Gmail" : "Notion"));
+        head.append(citeBadge(index + 1), sourceTag(source.source));
         card.append(head, el("b", "", source.title), el("span", "meta", source.meta));
         sources.append(card);
     });
