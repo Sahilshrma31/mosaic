@@ -54,10 +54,10 @@ def test_oversized_question_is_rejected():
 def test_demo_does_not_offer_the_remember_tool(demo, temp_memory):
     config, _ = agent._configs(SimpleNamespace(declarations=[]))
     names = [declaration.name for declaration in config.tools[0].function_declarations]
-    assert names == ["plan"]
+    assert names == ["plan", "propose_status_update"]
 
 
 def test_remember_tool_is_offered_outside_the_demo(temp_memory):
     config, _ = agent._configs(SimpleNamespace(declarations=[]))
     names = [declaration.name for declaration in config.tools[0].function_declarations]
-    assert names == ["plan", "remember"]
+    assert names == ["plan", "remember", "propose_status_update"]

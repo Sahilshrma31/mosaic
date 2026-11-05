@@ -7,13 +7,14 @@ exactly like gmail_server.py.
 from typing import Annotated, Literal
 
 from mcp.server.mcpserver import MCPServer
+from mcp_types import ToolAnnotations
 from pydantic import Field
 
 import tools
 
 server = MCPServer(
     name="mosaic-notion",
-    instructions="Read-only access to the student's Notion tracker and study planner.",
+    instructions="The student's Notion tracker and study planner. Writes need the student's approval.",
 )
 
 
@@ -26,7 +27,8 @@ server = MCPServer(
         "'tasks' is the study planner (task, subject, due date, status: Not Started/"
         "In Progress/Done); it also holds interview-prep tasks, so check it for anything "
         "about an interview. Notion can be out of date, so cross-check with emails."
-    )
+    ),
+    annotations=ToolAnnotations(read_only_hint=True),
 )
 def query_notion(
     database: Literal["applications", "tasks"],
@@ -46,6 +48,20 @@ def query_notion(
         }
         for row in tools.query_notion(database, status)
     ]
+
+
+# Not marked read-only, so the agent never offers this tool to the LLM (see ToolHub). It only
+# runs after the student clicks "Yes" on a proposed update.
+@server.tool(
+    description="Change the status of one application in the tracker.",
+    annotations=ToolAnnotations(read_only_hint=False),
+)
+def update_application_status(
+    row_id: str,
+    status: Literal["Applied", "Interview", "Rejected", "Offer"],
+) -> list[dict]:
+    """Returns [{"saved": bool}]; saved is False on sample data, which never changes."""
+    return [{"saved": tools.update_application_status(row_id, status)}]
 
 
 if __name__ == "__main__":

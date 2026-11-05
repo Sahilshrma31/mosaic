@@ -161,6 +161,57 @@ function renderSources(sources) {
     }
     return grid;
 }
+/**
+ * A tracker update waiting for the student's decision. Nothing changes until "Yes" is clicked.
+ * Every word comes from the server's evidence, not the model's prose, so the card shows exactly
+ * what will change and which mail it's based on.
+ */
+function renderAction(action) {
+    const card = el("div", "action-card");
+    card.append(el("div", "action-title", `Update ${action.title} in your tracker?`));
+    const change = el("div", "action-change");
+    change.append(el("span", "chip", action.from_status), document.createTextNode(" → "), el("span", "chip warn", action.to_status));
+    card.append(change);
+    const proof = action.evidence;
+    const url = safeUrl(proof?.url ?? null);
+    const basis = el(url ? "a" : "div", "action-basis");
+    if (basis instanceof HTMLAnchorElement && url) {
+        basis.href = url;
+        basis.target = "_blank";
+        basis.rel = "noopener noreferrer";
+    }
+    basis.textContent = proof
+        ? `Based on: ${proof.title ?? "a mail"} · ${proof.from ?? "unknown sender"} · ${formatDate(proof.date)}`
+        : "You asked for this change.";
+    card.append(basis);
+    const yes = el("button", "pill dark sm", "Yes, update");
+    const no = el("button", "pill sm", "No");
+    const buttons = el("div", "action-buttons");
+    buttons.append(yes, no);
+    card.append(buttons);
+    const decide = async (approve) => {
+        yes.disabled = no.disabled = true;
+        let message;
+        try {
+            const response = await fetch(`/actions/${encodeURIComponent(action.id)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ conversation_id: conversationId, approve }),
+            });
+            message = response.ok
+                ? (await response.json()).message
+                : "This update has expired or was already decided. Ask again if it's still needed.";
+        }
+        catch {
+            message = "Couldn't reach the server, so nothing was changed.";
+        }
+        buttons.replaceWith(el("div", "action-result", message));
+    };
+    yes.type = no.type = "button";
+    yes.addEventListener("click", () => void decide(true));
+    no.addEventListener("click", () => void decide(false));
+    return card;
+}
 /** A collapsible "how I got this" panel: the plan (if any) and every tool call per round. */
 function renderTrace(data) {
     if (!data.trace.length && !data.plan.length)
@@ -228,7 +279,7 @@ async function askMosaic(question, onEvent) {
 function friendlyResult(tool, result) {
     if (result.startsWith("ERROR"))
         return "failed";
-    const count = result.match(/^(\d+) results?$/);
+    const count = result.match(/^(\d+) results?/);
     if (!count)
         return "";
     const n = Number(count[1]);
@@ -252,6 +303,9 @@ function renderLiveStep(event) {
     }
     else if (tool === "remember") {
         item.append(el("span", "what", "Saving to memory"));
+    }
+    else if (tool === "propose_status_update") {
+        item.append(sourceTag("notion"), el("span", "what", "Preparing a tracker update for you to approve"));
     }
     else {
         item.append(el("span", "what", tool));
@@ -351,6 +405,8 @@ form.addEventListener("submit", async (event) => {
         reply.replaceChildren(renderAnswer(data.answer, sources));
         if (data.sources.length)
             reply.append(renderSources(data.sources));
+        for (const action of data.actions ?? [])
+            reply.append(renderAction(action));
         const trace = renderTrace(data);
         if (trace)
             reply.append(trace);

@@ -8,6 +8,7 @@ The client discovers the tools with list_tools, so the schema below is all it ne
 from typing import Annotated
 
 from mcp.server.mcpserver import MCPServer
+from mcp_types import ToolAnnotations
 from pydantic import Field
 
 import tools
@@ -31,7 +32,8 @@ server = MCPServer(
         "several times in the SAME turn, one topic per call, instead of one per turn. "
         "Deadlines are written as dates in mails, so to find what is due on a day, "
         "search for the date itself (e.g. '26 October')."
-    )
+    ),
+    annotations=ToolAnnotations(read_only_hint=True),
 )
 def search_emails(
     query: Annotated[str, Field(description="Space-separated keywords, 1-3 per topic.")],

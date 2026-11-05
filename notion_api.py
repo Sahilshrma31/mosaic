@@ -132,6 +132,11 @@ def add_row(key: str, database_id: str, row: dict) -> None:
     _request("POST", "/pages", {"parent": {"database_id": database_id}, "properties": properties})
 
 
+def update_status(page_id: str, status: str) -> None:
+    """Set the Status column of one row. Only this one property is sent, so nothing else changes."""
+    _request("PATCH", f"/pages/{page_id}", {"properties": {"Status": _to_property("select", status)}})
+
+
 def query(key: str) -> list[dict]:
     """Return every row of one database as flat dicts, in the order they were created.
 

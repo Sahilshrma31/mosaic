@@ -127,6 +127,26 @@ class TraceStep(BaseModel):
     result: str
 
 
+class ActionEvidence(BaseModel):
+    """The mail a proposed update is based on, taken from the evidence, not written by the model."""
+
+    title: str | None = None
+    # `from` is a Python keyword, so the field has another name and JSON keeps "from".
+    sender: str | None = Field(default=None, alias="from", serialization_alias="from")
+    date: str | None = None
+    url: str | None = None
+
+
+class ProposedAction(BaseModel):
+    """A tracker update waiting for the student's approval, e.g. Swiggy: Applied -> Rejected."""
+
+    id: str
+    title: str
+    from_status: str
+    to_status: str
+    evidence: ActionEvidence | None = None
+
+
 class ChatResponse(BaseModel):
     """Response body for POST /chat.
 
@@ -139,6 +159,7 @@ class ChatResponse(BaseModel):
     plan: list[str] = []
     trace: list[TraceStep] = []
     model: str = ""  # the Gemini model that produced the answer
+    actions: list[ProposedAction] = []  # tracker updates shown with approve / decline buttons
 
 
 # The public demo runs on a free Gemini quota (~80 requests a day, 2-4 per question), so it
@@ -179,7 +200,8 @@ async def chat(request: ChatRequest):
     """
     if agent.DEMO_MODE and not _take_demo_slot():
         return ChatResponse(answer=DEMO_LIMIT_MESSAGE.format(limit=DEMO_DAILY_LIMIT))
-    return ChatResponse(**asdict(await run_agent(request.question, hub, request.conversation_id, today=_today())))
+    reply = await run_agent(request.question, hub, request.conversation_id, today=_today())
+    return ChatResponse(**asdict(reply)).model_dump(by_alias=True)
 
 
 def _sse(event: dict) -> str:
@@ -215,7 +237,7 @@ async def chat_stream(request: ChatRequest):
             while (event := await queue.get()) is not None:
                 yield _sse(event)
             reply = ChatResponse(**asdict(task.result()))
-            yield _sse({"type": "answer", **reply.model_dump()})
+            yield _sse({"type": "answer", **reply.model_dump(by_alias=True)})
         except Exception:
             traceback.print_exc()
             yield _sse({"type": "error", "text": "Something went wrong while answering. Please try again."})
@@ -226,6 +248,31 @@ async def chat_stream(request: ChatRequest):
     return StreamingResponse(
         events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
+
+
+class ActionDecision(BaseModel):
+    """Request body for POST /actions/{id}: the chat it belongs to, and the student's answer."""
+
+    conversation_id: str = Field(max_length=64)
+    approve: bool
+
+
+class ActionResult(BaseModel):
+    state: str  # applied, rejected, stale or failed
+    message: str
+
+
+@app.post("/actions/{action_id}", response_model=ActionResult)
+async def decide_action(action_id: str, decision: ActionDecision):
+    """Apply or decline a proposed tracker update. This route is the only way anything gets written.
+
+    The LLM can't reach it: the page calls it only when the student clicks a button. The body
+    names no row or status, only the id of an update the server already holds.
+    """
+    result = await agent.decide_action(action_id, decision.conversation_id, decision.approve, hub)
+    if result is None:
+        raise HTTPException(status_code=409, detail="This update has expired or was already decided.")
+    return ActionResult(**result)
 
 
 @app.get("/memories")

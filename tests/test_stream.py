@@ -56,7 +56,7 @@ def test_model_fallback_emits_retry(monkeypatch):
     """A 503 on the first model sends a "retry" event before the next model starts over."""
     attempts = []
 
-    async def fake_loop(question, model, hub, history, today=None, on_event=None):
+    async def fake_loop(question, model, hub, history, today=None, on_event=None, conversation_id=None):
         attempts.append(model)
         if model == "first-model":
             raise errors.ServerError(503, {"error": {"message": "overloaded"}})

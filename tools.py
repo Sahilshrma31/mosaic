@@ -32,6 +32,10 @@ def _load(filename: str) -> list[dict]:
 
 # Loaded once at import time, not on every tool call, so repeated searches stay fast.
 EMAILS = _load("emails.json")
+# Malicious mails for the prompt-injection evals. Kept out of the normal mock inbox, so the demo
+# and the accuracy evals never see them; only a hub started with attack_mails=True loads them.
+if os.getenv("MOSAIC_ATTACK_MAILS") == "1":
+    EMAILS += _load("attack_emails.json")
 NOTION_DATABASES = {
     "applications": _load("notion_applications.json"),
     "tasks": _load("notion_tasks.json"),
@@ -140,3 +144,18 @@ def query_notion(database: str, status: str | None = None) -> list[dict]:
     if status:
         rows = [row for row in rows if row["status"].lower() == status.lower()]
     return rows
+
+
+def update_application_status(row_id: str, status: str) -> bool:
+    """Change one application's status and return whether anything was really saved.
+
+    Live mode writes to Notion and returns True. Mock mode only checks the row exists and
+    returns False: the sample data must stay fixed, or one demo visitor's click would change
+    the answers for everyone and break the evals' known answers.
+    """
+    if LIVE:
+        notion_api.update_status(row_id, status)
+        return True
+    if not any(row["id"] == row_id for row in NOTION_DATABASES["applications"]):
+        raise ValueError(f"Unknown application '{row_id}'.")
+    return False

@@ -6,12 +6,15 @@ Two kinds:
 - Long-term: lasting facts about the student, e.g. "Google is the student's dream company"
   (table `memories`), shared by every conversation and added to the system prompt.
 
+Also holds proposed Notion updates waiting for the student's approval (table `pending_actions`).
+
 Each function opens its own short connection: SQLite is a single local file, connecting is
 cheap, and it keeps the functions safe to call from any request.
 """
 
 import sqlite3
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 DB_FILE = Path(__file__).parent / "mosaic.db"
@@ -19,6 +22,9 @@ DB_FILE = Path(__file__).parent / "mosaic.db"
 # How many past question/answer pairs a new question sees. Older turns are left out to keep
 # the prompt small: every extra token is resent on every round of the agent loop.
 HISTORY_TURNS = 6
+
+# How long a proposed Notion update can still be approved.
+ACTION_TTL = timedelta(hours=1)
 
 
 def _connect() -> sqlite3.Connection:
@@ -46,6 +52,18 @@ def init() -> None:
             """CREATE TABLE IF NOT EXISTS memories (
                 id INTEGER PRIMARY KEY,
                 fact TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
+            )"""
+        )
+        db.execute(
+            """CREATE TABLE IF NOT EXISTS pending_actions (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                row_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                from_status TEXT NOT NULL,
+                to_status TEXT NOT NULL,
+                state TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )"""
         )
@@ -85,3 +103,47 @@ def all_facts() -> list[str]:
     """Every long-term fact, oldest first."""
     with _connect() as db:
         return [row[0] for row in db.execute("SELECT fact FROM memories ORDER BY id")]
+
+
+def create_action(conversation_id: str, row_id: str, title: str, from_status: str, to_status: str) -> str:
+    """Store an update the agent proposed, waiting for the student's decision. Returns its id.
+
+    The server keeps what will change, so an approval click can only confirm this exact
+    update: the browser sends just the id, never a row or a status of its own.
+    """
+    action_id = uuid.uuid4().hex
+    with _connect() as db:
+        db.execute(
+            "INSERT INTO pending_actions (id, conversation_id, row_id, title, from_status, to_status, state, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)",
+            (action_id, conversation_id, row_id, title, from_status, to_status, _now()),
+        )
+    return action_id
+
+
+def claim_action(action_id: str, conversation_id: str) -> dict | None:
+    """Take a pending action for processing, or return None if it can't be decided any more.
+
+    One UPDATE both checks and changes the state, so a double click can't run an update twice.
+    It must belong to the same conversation and be under ACTION_TTL old: an old card shouldn't
+    apply a change based on data that may no longer be true.
+    """
+    cutoff = (datetime.now(timezone.utc) - ACTION_TTL).isoformat()
+    with _connect() as db:
+        claimed = db.execute(
+            "UPDATE pending_actions SET state = 'processing'"
+            " WHERE id = ? AND conversation_id = ? AND state = 'pending' AND created_at >= ?",
+            (action_id, conversation_id, cutoff),
+        ).rowcount
+        if not claimed:
+            return None
+        row = db.execute(
+            "SELECT id, row_id, title, from_status, to_status FROM pending_actions WHERE id = ?", (action_id,)
+        ).fetchone()
+    return dict(zip(("id", "row_id", "title", "from_status", "to_status"), row))
+
+
+def finish_action(action_id: str, state: str) -> None:
+    """Record how a claimed action ended: applied, rejected, stale or failed."""
+    with _connect() as db:
+        db.execute("UPDATE pending_actions SET state = ? WHERE id = ?", (state, action_id))
